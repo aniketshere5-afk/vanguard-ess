@@ -1,0 +1,130 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@custom-variant dark (&:is(.dark *));
+@source "./**/*.ts";
+@source "./**/*.tsx";
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+:root {
+  --radius: .7rem;
+  --background: #f8fafc;
+  --foreground: #172033;
+  --card: #ffffff;
+  --card-foreground: #172033;
+  --popover: #ffffff;
+  --popover-foreground: #172033;
+  --primary: #4f46e5;
+  --primary-foreground: #ffffff;
+  --secondary: #eef2ff;
+  --secondary-foreground: #312e81;
+  --muted: #eef2f7;
+  --muted-foreground: #526078;
+  --accent: #e0e7ff;
+  --accent-foreground: #312e81;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --border: #d8dee9;
+  --input: #cbd5e1;
+  --ring: #6366f1;
+  --sidebar: #eef2ff;
+  --sidebar-foreground: #172033;
+  --sidebar-primary: #4f46e5;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e0e7ff;
+  --sidebar-accent-foreground: #312e81;
+  --sidebar-border: #c7d2fe;
+  --sidebar-ring: #6366f1;
+}
+
+.dark {
+  color-scheme: dark;
+  --background: #0F172A;
+  --foreground: #F8FAFC;
+  --card: #1E293B;
+  --card-foreground: #F8FAFC;
+  --popover: #1E293B;
+  --popover-foreground: #F8FAFC;
+  --primary: #818CF8;
+  --primary-foreground: #0F172A;
+  --secondary: #273449;
+  --secondary-foreground: #E0E7FF;
+  --muted: #243247;
+  --muted-foreground: #AAB7CC;
+  --accent: #312E81;
+  --accent-foreground: #EEF2FF;
+  --destructive: #F87171;
+  --destructive-foreground: #1F1111;
+  --border: #334155;
+  --input: #475569;
+  --ring: #A5B4FC;
+  --sidebar: #111C31;
+  --sidebar-foreground: #F8FAFC;
+  --sidebar-primary: #818CF8;
+  --sidebar-primary-foreground: #0F172A;
+  --sidebar-accent: #1E293B;
+  --sidebar-accent-foreground: #EEF2FF;
+  --sidebar-border: #334155;
+  --sidebar-ring: #A5B4FC;
+}
+
+@layer base {
+  * { @apply border-border outline-ring/50; }
+  html { min-width: 320px; }
+  body {
+    @apply bg-background text-foreground;
+    font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+    background-image: radial-gradient(circle at top right, color-mix(in srgb, var(--primary) 9%, transparent), transparent 34rem);
+  }
+  button:not(:disabled), [role="button"]:not([aria-disabled="true"]), a[href], select:not(:disabled) { @apply cursor-pointer; }
+  :focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+}
+
+@layer components {
+  .container { width: 100%; margin-inline: auto; padding-inline: 1rem; }
+  .flex { min-height: 0; min-width: 0; }
+  .blueprint-panel { background: var(--card); border: 1px solid var(--border); box-shadow: 0 14px 34px color-mix(in srgb, var(--background) 55%, transparent); }
+  .blueprint-label { letter-spacing: .14em; text-transform: uppercase; font-size: .65rem; font-weight: 700; color: var(--muted-foreground); }
+  .metric-value { font-variant-numeric: tabular-nums; letter-spacing: -.04em; }
+  .tech-line { height: 1px; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--primary) 55%, transparent), transparent); }
+}
+
+@media (min-width: 640px) { .container { padding-inline: 1.5rem; } }
+@media (min-width: 1024px) { .container { padding-inline: 2rem; max-width: 1440px; } }
+@media print {
+  body { background: white !important; color: black !important; }
+  aside, nav, button, input, select, textarea, [data-sidebar] { display: none !important; }
+  .blueprint-panel { box-shadow: none !important; break-inside: avoid; }
+  main { padding: 0 !important; }
+}

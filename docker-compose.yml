@@ -1,0 +1,13 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: vanguard_ess
+      POSTGRES_USER: vanguard
+      POSTGRES_PASSWORD: change-me-local-only
+    ports:
+      - "5432:5432"
+    volumes:
+      - vanguard_pgdata:/var/lib/postgresql/data
+volumes:
+  vanguard_pgdata:

@@ -1,0 +1,8 @@
+ALTER TABLE `analysis_runs` ADD CONSTRAINT `analysis_runs_componentId_components_id_fk` FOREIGN KEY (`componentId`) REFERENCES `components`(`id`) ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE `audit_logs` ADD CONSTRAINT `audit_logs_actorId_users_id_fk` FOREIGN KEY (`actorId`) REFERENCES `users`(`id`) ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE `components` ADD CONSTRAINT `components_lotId_lots_id_fk` FOREIGN KEY (`lotId`) REFERENCES `lots`(`id`) ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE `decisions` ADD CONSTRAINT `decisions_investigationId_investigations_id_fk` FOREIGN KEY (`investigationId`) REFERENCES `investigations`(`id`) ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE `decisions` ADD CONSTRAINT `decisions_decidedBy_users_id_fk` FOREIGN KEY (`decidedBy`) REFERENCES `users`(`id`) ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE `investigations` ADD CONSTRAINT `investigations_componentId_components_id_fk` FOREIGN KEY (`componentId`) REFERENCES `components`(`id`) ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE `investigations` ADD CONSTRAINT `investigations_openedBy_users_id_fk` FOREIGN KEY (`openedBy`) REFERENCES `users`(`id`) ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE `measurements` ADD CONSTRAINT `measurements_componentId_components_id_fk` FOREIGN KEY (`componentId`) REFERENCES `components`(`id`) ON DELETE no action ON UPDATE no action;
