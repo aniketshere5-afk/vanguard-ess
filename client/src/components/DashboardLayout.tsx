@@ -23,7 +23,8 @@ import { isDemoPreview, startLogin } from "@/const";
 import { ThemePreference, useTheme } from "@/contexts/ThemeContext";
 import { useIsMobile } from "@/hooks/useMobile";
 import { AlertCircle, ArrowRight, CheckCircle2, ChevronDown, LogOut, Monitor, Moon, PanelLeft, RefreshCw, ShieldCheck, Sun } from "lucide-react";
-import { menuItemKey, menuItems } from "./dashboardNavigation";
+import { menuItemKey, menuItems, visibleMenuItems as filterMenuItems } from "./dashboardNavigation";
+import { getDemoRole } from "@/const";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -158,7 +159,8 @@ function DashboardLayoutContent({
   const [logoutOpen, setLogoutOpen] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const activeMenuItem = menuItems.find(item => item.path === location);
-  const visibleMenuItems = menuItems.filter(item => (item.path !== "/configuration" && item.path !== "/admin/users") || user?.role === "admin" || demoPreview);
+  const effectiveRole = user?.role ?? (demoPreview ? getDemoRole() : undefined);
+  const visibleMenuItems = filterMenuItems(effectiveRole);
   const isMobile = useIsMobile();
 
   useEffect(() => {
