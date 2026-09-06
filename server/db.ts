@@ -511,7 +511,8 @@ export async function computeComponentAnalysis(componentId: number, persist = tr
     .map(rows => Number(rows.find(r => r.checkpointHours === 0)?.leakageCurrent))
     .filter(Number.isFinite);
   const points: Point[] = ms.map(m => ({ checkpointHours: m.checkpointHours, value: Number(m.leakageCurrent) }));
-  const result = computeReliability(points, peerInitialValues, Number(lot.specificationMax), Number(lot.safetyMargin));
+  const peerPointSets: Point[][] = peerMs.map(rows => rows.map(m => ({ checkpointHours: m.checkpointHours, value: Number(m.leakageCurrent) })));
+  const result = computeReliability(points, peerInitialValues, Number(lot.specificationMax), Number(lot.safetyMargin), peerPointSets);
   if (persist) await saveAnalysis(componentId, result, "COMPLETE", result.modelVersion);
   return { component, lot, measurements: ms, result };
 }

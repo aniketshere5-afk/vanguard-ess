@@ -27,6 +27,49 @@ describe("reliability computation", () => {
     const result = computeReliability([{ checkpointHours: 0, value: 12 }, { checkpointHours: 24, value: 12.2 }], [10, 11], 50, 42);
     expect(result.dynamicResult).toBe("INSUFFICIENT_DATA"); expect(result.lotBaseline).toBe(10.5); expect(result.anomalyScore).toBeNull(); expect(result.evidence[1]?.value).toContain("robust z");
   });
+
+  it("explains the static verdict with the measured margin", () => {
+    const pass = computeReliability([{ checkpointHours: 0, value: 44.8 }, { checkpointHours: 24, value: 45 }], [10, 10.2, 10.4], 50, 42);
+    expect(pass.staticExplanation.verdict).toBe("PASS");
+    expect(pass.staticExplanation.margin).toBeCloseTo(5.2, 1);
+    const fail = computeReliability([{ checkpointHours: 0, value: 56 }, { checkpointHours: 24, value: 58 }], [10, 10.2, 10.4], 50, 42);
+    expect(fail.staticExplanation.verdict).toBe("FAIL");
+    expect(fail.staticExplanation.reason).toContain("exceeds");
+  });
+
+  it("produces an exact linear-SHAP decomposition that reconciles with the score", () => {
+    const peerPoints = Array.from({ length: 8 }, (_, i) => [
+      { checkpointHours: 0, value: 10 + i * 0.1 },
+      { checkpointHours: 24, value: 10.2 + i * 0.1 },
+      { checkpointHours: 168, value: 10.6 + i * 0.1 },
+    ]);
+    const peerInitials = peerPoints.map(p => p[0].value);
+    const result = computeReliability(
+      [{ checkpointHours: 0, value: 44.8 }, { checkpointHours: 24, value: 48.6 }, { checkpointHours: 168, value: 60 }],
+      peerInitials, 50, 42, peerPoints,
+    );
+    expect(result.shap).not.toBeNull();
+    const shap = result.shap!;
+    expect(shap.features).toHaveLength(5);
+    // baseValue + Σ contributions must equal the model prediction (exact for a linear model).
+    const summed = shap.baseValue + shap.features.reduce((s, f) => s + f.contribution, 0);
+    expect(summed).toBeCloseTo(shap.prediction, 1);
+    // and the prediction tracks the reported (clamped, rounded) risk score.
+    expect(Math.abs(shap.prediction - (result.riskScore ?? 0))).toBeLessThanOrEqual(1);
+    // features are ordered by absolute contribution.
+    for (let i = 1; i < shap.features.length; i++) {
+      expect(Math.abs(shap.features[i - 1].contribution)).toBeGreaterThanOrEqual(Math.abs(shap.features[i].contribution));
+    }
+  });
+
+  it("withholds SHAP when the peer set is too small for a baseline", () => {
+    const result = computeReliability(
+      [{ checkpointHours: 0, value: 12 }, { checkpointHours: 24, value: 12.2 }],
+      [10, 11], 50, 42,
+      [[{ checkpointHours: 0, value: 10 }, { checkpointHours: 24, value: 10.1 }]],
+    );
+    expect(result.shap).toBeNull();
+  });
 });
 
 describe("authorization policy", () => {
