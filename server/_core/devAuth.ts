@@ -15,7 +15,9 @@ type DevRole = (typeof ROLES)[number];
  *   GET /api/auth/dev?role=scientist
  */
 export function registerDevAuthRoutes(app: Express) {
-  if (process.env.NODE_ENV === "production") return;
+  // Fail closed: only ever enabled when NODE_ENV is explicitly "development".
+  // An unset NODE_ENV in a deployed environment must NOT expose this route.
+  if (process.env.NODE_ENV !== "development") return;
 
   app.get("/api/auth/dev", async (req: Request, res: Response) => {
     const role: DevRole = ROLES.includes(req.query.role as DevRole) ? (req.query.role as DevRole) : "scientist";
