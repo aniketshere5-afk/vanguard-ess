@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, it } from "vitest";
 import { detectFormat, parseDataset } from "./ingestion";
-import { importDataset, computeComponentAnalysis, getComponents, deleteLotByCode } from "./db";
+import { importDataset, computeComponentAnalysis, getComponents, deleteLotByCode, updateLotConfig, getLot } from "./db";
 
 const importedLotCodes: string[] = [];
 afterAll(async () => {
@@ -100,5 +100,24 @@ describe("dataset import (requires DATABASE_URL)", () => {
     const analysis = await computeComponentAnalysis(imported!.id, false);
     expect(analysis.result.modelVersion).toBeTruthy();
     expect(analysis.measurements.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("persists lot config changes and feeds them into the next analysis", async () => {
+    if (!process.env.DATABASE_URL) return;
+    const lotCode = `LOT-IMPORT-CFG-${Date.now()}`;
+    importedLotCodes.push(lotCode);
+    const imported = await importDataset(parseDataset(uniqueImportCsv(lotCode)), { specificationMax: 50, safetyBoundary: 42 });
+    const componentId = (await getComponents(imported.lotId))[0].id;
+
+    const before = await computeComponentAnalysis(componentId, false);
+    await updateLotConfig(imported.lotId, { specificationMax: 55, safetyBoundary: 20 });
+
+    const lot = await getLot(imported.lotId);
+    expect(Number(lot?.safetyMargin)).toBe(20);
+    expect(Number(lot?.specificationMax)).toBe(55);
+
+    const after = await computeComponentAnalysis(componentId, false);
+    expect(after.result.safetyBoundary).toBe(20);
+    expect(after.result.boundaryMargin).not.toBe(before.result.boundaryMargin);
   });
 });

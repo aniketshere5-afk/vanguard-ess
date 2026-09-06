@@ -13,6 +13,7 @@ import {
   riskScores,
   users,
   InsertUser,
+  Lot,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 import { generateSyntheticDemo, computeReliability, Point } from "./reliability";
@@ -401,6 +402,35 @@ export async function getLot(id: number) {
   const db = await getDb();
   if (!db) return undefined;
   return (await db.select().from(lots).where(eq(lots.id, id)).limit(1))[0];
+}
+
+/**
+ * Persist a lot's screening parameters. These feed computeReliability directly,
+ * so every later analysis for the lot uses the new values. Cached analysis_runs
+ * are cleared so stale scores are not shown after a threshold change.
+ */
+export async function updateLotConfig(
+  id: number,
+  patch: { specificationMax?: number; safetyBoundary?: number },
+  actorId?: number,
+): Promise<Lot | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  const set: Record<string, string> = {};
+  if (patch.specificationMax != null) set.specificationMax = patch.specificationMax.toFixed(4);
+  if (patch.safetyBoundary != null) set.safetyMargin = patch.safetyBoundary.toFixed(4);
+  if (!Object.keys(set).length) return getLot(id);
+  await db.update(lots).set(set).where(eq(lots.id, id));
+
+  const lotComponents = await db.select({ id: components.id }).from(components).where(eq(components.lotId, id));
+  const ids = lotComponents.map(c => c.id);
+  if (ids.length) {
+    await db.delete(riskScores).where(inArray(riskScores.componentId, ids));
+    await db.delete(driftPredictions).where(inArray(driftPredictions.componentId, ids));
+    await db.delete(analysisRuns).where(inArray(analysisRuns.componentId, ids));
+  }
+  await recordAudit("CONFIGURATION_CHANGED", "lot", String(id), actorId, patch);
+  return getLot(id);
 }
 
 export async function getLatestAnalysis(componentId: number) {

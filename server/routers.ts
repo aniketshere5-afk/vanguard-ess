@@ -6,7 +6,7 @@ import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { validateCsv } from "./reliability";
 import { parseDataset } from "./ingestion";
-import { ensureDemoDataset, getLots, getLot, getComponents, getComponent, getMeasurements, getLatestAnalysis, getLatestAnalyses, computeComponentAnalysis, createInvestigation, closeInvestigation, getAuditLogs, getInvestigations, getDecisions, getModels, recordAudit, updateUserProfile, listUsers, updateUserRole, importDataset } from "./db";
+import { ensureDemoDataset, getLots, getLot, getComponents, getComponent, getMeasurements, getLatestAnalysis, getLatestAnalyses, computeComponentAnalysis, createInvestigation, closeInvestigation, getAuditLogs, getInvestigations, getDecisions, getModels, recordAudit, updateUserProfile, listUsers, updateUserRole, importDataset, updateLotConfig } from "./db";
 
 const decisionSchema = z.enum(["Accept", "Hold", "Re-test", "Extend Burn-In", "Reject", "Investigate Further"]);
 export const roleGuard = (role: string) => role === "admin" || role === "qa";
@@ -42,7 +42,19 @@ export const appRouter = router({
   explanations: router({ get: readProcedure.input(z.object({ componentId: z.number().int() })).query(async ({ input }) => { const result = await computeComponentAnalysis(input.componentId); return { evidence: result.result.evidence, featureContributions: result.result.featureContributions, caveat: "Feature contribution indicates model influence, not proven physical causation." }; }) }),
   investigations: router({ list: readProcedure.query(() => getInvestigations()), create: scientistProcedure.input(z.object({ componentId: z.number().int() })).mutation(async ({ input, ctx }) => { await ensureDemoDataset(); const analysis = await computeComponentAnalysis(input.componentId); return createInvestigation(input.componentId, analysis.result.suggestedAction, ctx.user.id); }), get: readProcedure.input(z.object({ id: z.number().int() })).query(async ({ input }) => ({ id: input.id, decisions: await getDecisions(input.id) })), decide: qaProcedure.input(z.object({ investigationId: z.number().int(), decision: decisionSchema, comment: z.string().max(1000).optional() })).mutation(async ({ input, ctx }) => { if (!roleGuard(ctx.user.role)) throw new TRPCError({ code: "FORBIDDEN", message: "QA role required" }); return closeInvestigation(input.investigationId, input.decision, input.comment, ctx.user.id); }) }),
   audit: router({ list: readProcedure.query(() => getAuditLogs()) }),
-  configuration: router({ updateBoundary: adminProcedure.input(z.object({ lotId: z.number().int(), safetyBoundary: z.number().positive().max(100000) })).mutation(async ({ input, ctx }) => { await recordAudit("CONFIGURATION_CHANGED", "lot", String(input.lotId), ctx.user.id, { safetyBoundary: input.safetyBoundary }); return { recorded: true, ...input }; }) }),
+  configuration: router({
+    updateLot: adminProcedure
+      .input(z.object({
+        lotId: z.number().int(),
+        specificationMax: z.number().positive().max(100000).optional(),
+        safetyBoundary: z.number().positive().max(100000).optional(),
+      }).refine(v => v.specificationMax != null || v.safetyBoundary != null, "Provide at least one value to change"))
+      .mutation(async ({ input, ctx }) => {
+        const updated = await updateLotConfig(input.lotId, { specificationMax: input.specificationMax, safetyBoundary: input.safetyBoundary }, ctx.user.id);
+        if (!updated) throw new TRPCError({ code: "NOT_FOUND", message: "Lot not found" });
+        return updated;
+      }),
+  }),
   models: router({ list: readProcedure.query(async ({ ctx }) => { await ensureDemoDataset(); const models = await getModels(); if (ctx.user) await recordAudit("MODEL_METADATA_REVIEWED", "model", models[0]?.version, ctx.user.id, { count: models.length }); return models; }) }),
 });
 export type AppRouter = typeof appRouter;
