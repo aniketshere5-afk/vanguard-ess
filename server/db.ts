@@ -16,6 +16,7 @@ import {
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 import { generateSyntheticDemo, computeReliability, Point } from "./reliability";
+import type { ParsedDataset } from "./ingestion";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 let demoSeedPromise: Promise<void> | null = null;
@@ -91,6 +92,96 @@ export async function recordAudit(
   const db = await getDb();
   if (!db) return;
   await db.insert(auditLogs).values({ action, targetType, targetId, actorId, metadataJson });
+}
+
+export type ImportResult = {
+  lotId: number;
+  lotCode: string;
+  format: ParsedDataset["format"];
+  componentsCreated: number;
+  componentsTotal: number;
+  measurementsInserted: number;
+  notes: string[];
+};
+
+/**
+ * Persist a parsed dataset. Re-importing the same lot is safe: existing
+ * components are matched by code and existing (component, checkpoint)
+ * measurements are left untouched rather than duplicated.
+ */
+export async function importDataset(
+  parsed: ParsedDataset,
+  options: { specificationMax: number; safetyBoundary: number; actorId?: number }
+): Promise<ImportResult> {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not connected");
+  if (!parsed.components.length) throw new Error("No importable components were found in this file");
+
+  let lot = (await db.select().from(lots).where(eq(lots.lotCode, parsed.lotCode)).limit(1))[0];
+  if (!lot) {
+    await db.insert(lots).values({
+      lotCode: parsed.lotCode,
+      deviceFamily: parsed.deviceFamily || "Imported dataset",
+      dataLabel: "Imported Dataset",
+      specificationMax: options.specificationMax.toFixed(4),
+      safetyMargin: options.safetyBoundary.toFixed(4),
+    });
+    lot = (await db.select().from(lots).where(eq(lots.lotCode, parsed.lotCode)).limit(1))[0];
+  }
+  if (!lot) throw new Error("Lot could not be created");
+
+  const existing = await db.select().from(components).where(eq(components.lotId, lot.id));
+  const existingCodes = new Set(existing.map(c => c.componentCode));
+  const toCreate = parsed.components
+    .filter(c => !existingCodes.has(c.componentCode))
+    .map(c => ({ componentCode: c.componentCode, lotId: lot!.id, scenario: c.scenario || "Imported" }));
+  if (toCreate.length) await db.insert(components).values(toCreate);
+
+  const allComponents = await db.select().from(components).where(eq(components.lotId, lot.id));
+  const idByCode = new Map(allComponents.map(c => [c.componentCode, c.id]));
+  const componentIds = allComponents.map(c => c.id);
+  const priorKeys = new Set(
+    (componentIds.length
+      ? await db
+          .select({ componentId: measurements.componentId, checkpointHours: measurements.checkpointHours })
+          .from(measurements)
+          .where(inArray(measurements.componentId, componentIds))
+      : []
+    ).map(row => `${row.componentId}:${row.checkpointHours}`)
+  );
+
+  const measurementRows = parsed.components.flatMap(component => {
+    const componentId = idByCode.get(component.componentCode);
+    if (!componentId) return [];
+    return component.points
+      .filter(point => !priorKeys.has(`${componentId}:${point.checkpointHours}`))
+      .map(point => ({
+        componentId,
+        checkpointHours: point.checkpointHours,
+        leakageCurrent: point.leakageCurrent.toFixed(4),
+        temperatureC: point.temperatureC.toFixed(3),
+        voltageV: point.voltageV.toFixed(3),
+      }));
+  });
+  if (measurementRows.length) await db.insert(measurements).values(measurementRows);
+
+  await recordAudit("DATASET_IMPORTED", "lot", String(lot.id), options.actorId, {
+    lotCode: parsed.lotCode,
+    format: parsed.format,
+    componentsCreated: toCreate.length,
+    measurementsInserted: measurementRows.length,
+    sourceRows: parsed.rowCount,
+  });
+
+  return {
+    lotId: lot.id,
+    lotCode: parsed.lotCode,
+    format: parsed.format,
+    componentsCreated: toCreate.length,
+    componentsTotal: parsed.components.length,
+    measurementsInserted: measurementRows.length,
+    notes: parsed.notes,
+  };
 }
 
 /**
@@ -243,6 +334,32 @@ async function seedDemoDataset() {
       scenarioCount: demo.scenarios.length,
     });
   }
+}
+
+/**
+ * Remove a lot and every row that depends on it, in foreign-key-safe order.
+ * Used to roll back an imported dataset (and to keep test databases clean).
+ */
+export async function deleteLotByCode(lotCode: string): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const lot = (await db.select().from(lots).where(eq(lots.lotCode, lotCode)).limit(1))[0];
+  if (!lot) return false;
+  const lotComponents = await db.select({ id: components.id }).from(components).where(eq(components.lotId, lot.id));
+  const ids = lotComponents.map(c => c.id);
+  if (ids.length) {
+    const invRows = await db.select({ id: investigations.id }).from(investigations).where(inArray(investigations.componentId, ids));
+    const invIds = invRows.map(i => i.id);
+    if (invIds.length) await db.delete(decisions).where(inArray(decisions.investigationId, invIds));
+    await db.delete(investigations).where(inArray(investigations.componentId, ids));
+    await db.delete(riskScores).where(inArray(riskScores.componentId, ids));
+    await db.delete(driftPredictions).where(inArray(driftPredictions.componentId, ids));
+    await db.delete(analysisRuns).where(inArray(analysisRuns.componentId, ids));
+    await db.delete(measurements).where(inArray(measurements.componentId, ids));
+    await db.delete(components).where(inArray(components.id, ids));
+  }
+  await db.delete(lots).where(eq(lots.id, lot.id));
+  return true;
 }
 
 export function ensureDemoDataset() {

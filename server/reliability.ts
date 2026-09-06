@@ -65,10 +65,10 @@ export function computeReliability(points: Point[], peerInitialValues: number[],
   const suggestedAction = riskScore >= 80 ? "Hold for Review" : riskScore >= 60 ? "Extended Burn-In" : riskScore >= 41 ? "Re-test" : "Standard Screening";
   const evidence = [
     { label: "Static specification", value: initial == null ? "No initial measurement" : `${initial.toFixed(2)} µA ≤ ${specificationMax.toFixed(2)} µA · ${staticResult}`, severity: staticResult === "PASS" ? "positive" : "critical" },
-    { label: "Lot-relative baseline", value: peerMedian == null ? "Insufficient peer data" : `${initial!.toFixed(2)} µA vs median ${peerMedian.toFixed(2)} µA · robust z ${robustZ!.toFixed(2)}`, severity: dynamicResult === "ANOMALOUS" ? "warning" : "neutral" },
+    { label: "Lot-relative baseline", value: peerMedian == null || initial == null ? "Insufficient peer data" : `${initial.toFixed(2)} µA vs median ${peerMedian.toFixed(2)} µA · robust z ${robustZ == null ? "n/a" : robustZ.toFixed(2)}`, severity: dynamicResult === "ANOMALOUS" ? "warning" : "neutral" },
     { label: "Hybrid anomaly evidence", value: enoughPeers ? `Robust deviation ${robustEvidence.toFixed(1)} + normalized distribution evidence ${thresholdEvidence.toFixed(1)}` : "Insufficient peer data for hybrid evidence", severity: dynamicResult === "ANOMALOUS" ? "warning" : "neutral" },
     { label: "Early drift", value: driftPercent == null ? "Insufficient temporal data" : `${driftPercent >= 0 ? "+" : ""}${driftPercent.toFixed(1)}% from 0h to 24h`, severity: driftPercent != null && driftPercent > 15 ? "warning" : "neutral" },
-    { label: "168h forecast", value: predicted == null ? "Unable to generate a reliable prediction" : `${predicted.toFixed(2)} µA · interval ${interval![0].toFixed(2)}–${interval![1].toFixed(2)} µA`, severity: boundaryStatus === "CROSSES" ? "critical" : "neutral" },
+    { label: "168h forecast", value: predicted == null ? "Unable to generate a reliable prediction" : interval == null ? `${predicted.toFixed(2)} µA · interval unavailable (needs ≥ 2 lot peers)` : `${predicted.toFixed(2)} µA · interval ${interval[0].toFixed(2)}–${interval[1].toFixed(2)} µA`, severity: boundaryStatus === "CROSSES" ? "critical" : "neutral" },
     { label: "Safety boundary", value: margin == null ? "Unknown" : `${configuredSafetyBoundary.toFixed(2)} µA · margin ${margin.toFixed(2)} µA`, severity: boundaryStatus === "CROSSES" ? "critical" : boundaryStatus === "WATCH" ? "warning" : "positive" },
   ] as ReliabilityResult["evidence"];
   const featureContributions = [
