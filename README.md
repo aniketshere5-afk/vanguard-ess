@@ -14,11 +14,21 @@ The project uses the provided React 19 + Vite + TypeScript + Tailwind + shadcn/u
 
 ## Setup
 
-Run `pnpm install`, then `pnpm dev`. The managed environment supplies the database and authentication variables. Run `pnpm test`, `pnpm check`, and `pnpm build` before delivery. `docker-compose.yml` contains an optional local PostgreSQL service for development reference; the managed scaffold’s database connection remains the source of truth for this project.
+1. `docker compose up -d` (or `docker run … mysql:8.4`) to start the local **MySQL 8.4** database. The schema and Drizzle queries target MySQL.
+2. `cp .env.example .env` — the defaults point at that container. Set `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` for real sign-in, or use the **"Preview synthetic dataset (read-only)"** button to explore without auth.
+3. `pnpm install`
+4. `pnpm exec drizzle-kit migrate` to create the tables (`DATABASE_URL` must be set).
+5. `pnpm dev` — serves the app on `http://localhost:3000`. The synthetic demonstration lot seeds automatically on the first request.
+
+Run `pnpm test`, `pnpm check`, and `pnpm build` before delivery.
+
+### Importing your own data
+
+Upload a CSV from the **Reliability workbench**. Two schemas are accepted: the native `component_id,lot_code,checkpoint_hours,leakage_current,unit` checkpoint format, and the richer hourly **ESS telemetry** export (collapsed onto the standard 0/24/48/96/168h checkpoints). Sample files are in `docs/sample-data/`. Files are validated before anything is written, and re-importing the same lot is idempotent.
 
 ## Analysis safeguards
 
-Static screening is separated from lot-relative evidence. Lot baselines use median, MAD, IQR, and robust z-score; lots with fewer than five peer observations are reported as insufficient rather than given a fabricated confidence. The forecast uses the 0h and 24h observations, estimates an interpretable slope to 168h, and attaches a residual-based interval. The single **Predictive Reliability Risk Score** combines documented evidence weights for static compliance, dynamic anomaly, drift, boundary proximity, and uncertainty. A feature contribution indicates model influence, not proven physical causation.
+Static screening is separated from lot-relative evidence. Lot baselines use median, MAD, IQR, and robust z-score; lots with fewer than five peer observations are reported as insufficient rather than given a fabricated confidence. The forecast uses the 0h and 24h observations, estimates an interpretable slope to 168h, and attaches a residual-based interval. The single **Predictive Reliability Risk Score** combines documented evidence weights (summing to 1) for static compliance, dynamic anomaly, drift, boundary proximity, and uncertainty. Because the model is linear, the per-feature **SHAP** decomposition is exact: each contribution is `weight × (this unit − lot-peer mean)`, and `base value + Σ contributions` reconciles with the score. The forecaster's MAE / RMSE / R² shown in Configuration are computed from a 168h holdout over the persisted checkpoints, not hardcoded. A feature contribution indicates model influence, not proven physical causation.
 
 ## Human QA and traceability
 
@@ -34,7 +44,7 @@ This prototype uses synthetic data and does not claim ISRO production training, 
 
 ## Console sections and SIH demo
 
-The authenticated console now exposes four functional sections: **Reliability control**, **Investigation queue**, **Analysis pipeline**, and **Configuration**. Reliability control retains the deterministic P0 investigation workflow. Investigation queue presents persisted investigations, common-cause/noisy scenario signals, audit-aware status, and a print action. Analysis pipeline provides five live challenge scenarios backed by seeded measurement data, computed forecast uncertainty, safety-boundary evidence, and registered model metadata. Configuration presents the exact product roles and admin-gated safety-boundary changes.
+The landing route resolves by role: an **Admin dashboard** (system health, lot health, users-by-role, audit trail), a **QA dashboard** (an "awaiting your decision" queue with review deep-links, recent decisions), and for everyone else the **Reliability workbench**. The workbench screens one component through four labelled sections in order — **1 Anomaly detection · 2 Drift prediction · 3 Risk management · 4 Pass/fail explanation** — with the CSV import and audit feed as a secondary row. **Investigation queue** lists persisted investigations and common-cause signals with a print action. **Configuration** persists per-lot specification limit and safety boundary (feeding the engine directly, clearing cached scores), shows the fixed model bands, and lists registered models with real holdout metrics; editing is admin-only.
 
 The primary judge flow remains **Observe → Validate → Compare → Detect → Predict → Quantify uncertainty → Explain → Suggested Screening Action → Human QA Decision → Audit**. Analytical outputs are computed from the persisted synthetic demonstration dataset and are not prerecorded. Synthetic data is labelled `Synthetic / Demonstration Data`.
 

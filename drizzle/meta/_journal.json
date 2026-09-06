@@ -29,6 +29,13 @@
       "when": 1788499193436,
       "tag": "0003_absent_the_hunter",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1788726410947,
+      "tag": "0004_sticky_green_goblin",
+      "breakpoints": true
     }
   ]
 }

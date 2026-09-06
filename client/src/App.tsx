@@ -1,12 +1,14 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
-import { Route, Switch } from "wouter";
+import { Redirect, Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
+import AdminDashboard from "./pages/AdminDashboard";
+import QADashboard from "./pages/QADashboard";
+import ReliabilityWorkbench from "./pages/ReliabilityWorkbench";
 import InvestigationQueue from "./pages/InvestigationQueue";
-import AnalysisPipeline from "./pages/AnalysisPipeline";
 import Configuration from "@/pages/Configuration";
 import AccountSettings from "@/pages/AccountSettings";
 import AdminUsers from "@/pages/AdminUsers";
@@ -15,9 +17,11 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
-      <Route path="/reliability" component={Home} />
+      <Route path="/reliability" component={ReliabilityWorkbench} />
+      <Route path="/admin" component={AdminDashboard} />
+      <Route path="/qa" component={QADashboard} />
       <Route path="/investigations" component={InvestigationQueue} />
-      <Route path="/analysis" component={AnalysisPipeline} />
+      <Route path="/analysis"><Redirect to="/reliability" /></Route>
       <Route path="/configuration" component={Configuration} />
       <Route path="/settings" component={AccountSettings} />
       <Route path="/admin/users" component={AdminUsers} />

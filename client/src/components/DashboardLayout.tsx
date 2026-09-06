@@ -23,7 +23,9 @@ import { isDemoPreview, startLogin } from "@/const";
 import { ThemePreference, useTheme } from "@/contexts/ThemeContext";
 import { useIsMobile } from "@/hooks/useMobile";
 import { AlertCircle, ArrowRight, CheckCircle2, ChevronDown, LogOut, Monitor, Moon, PanelLeft, RefreshCw, ShieldCheck, Sun } from "lucide-react";
-import { menuItemKey, menuItems } from "./dashboardNavigation";
+import { menuItemKey, menuItems, visibleMenuItems as filterMenuItems } from "./dashboardNavigation";
+import { GovFooter, GovMasthead } from "./GovChrome";
+import { getDemoRole } from "@/const";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -96,45 +98,65 @@ export default function DashboardLayout({
       await refresh();
     };
     return (
-      <div className="relative min-h-screen overflow-hidden bg-[#0F172A] text-slate-100">
-        <div className="pointer-events-none absolute -left-24 top-[-12rem] h-[28rem] w-[28rem] rounded-full bg-indigo-500/15 blur-3xl" />
-        <div className="pointer-events-none absolute bottom-[-16rem] right-[-6rem] h-[32rem] w-[32rem] rounded-full bg-cyan-500/10 blur-3xl" />
-        <div className="relative mx-auto flex min-h-screen max-w-6xl items-center px-5 py-10 sm:px-8 lg:px-12">
-          <div className="grid w-full gap-10 lg:grid-cols-[1.05fr_.95fr] lg:items-center">
+      <div className="flex min-h-svh flex-col bg-background text-foreground">
+        <GovMasthead />
+        <main className="flex flex-1 items-center justify-center px-4 py-10">
+          <div className="grid w-full max-w-5xl gap-8 lg:grid-cols-[1fr_400px] lg:items-center">
             <div className="max-w-xl">
-              <div className="mb-8 flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.2em] text-indigo-300"><span className="grid h-10 w-10 place-items-center rounded-xl border border-indigo-400/30 bg-indigo-400/10 text-lg">V</span><span>VanGuard ESS / Reliability Console</span></div>
-              <p className="font-mono text-xs uppercase tracking-[0.18em] text-slate-400">Secure engineering workspace</p>
-              <h1 className="mt-4 text-4xl font-semibold tracking-tight text-white sm:text-5xl">Turn early signals into defensible reliability decisions.</h1>
-              <p className="mt-5 max-w-lg text-base leading-7 text-slate-300">Sign in to inspect lot-relative evidence, 168h forecasts, uncertainty, safety boundaries, and human QA decisions in one traceable console.</p>
-              <div className="mt-8 grid gap-3 sm:grid-cols-3">{["Evidence-first", "Role-aware", "Audit-ready"].map(label => <div key={label} className="rounded-xl border border-slate-700/80 bg-[#1E293B]/70 px-3 py-3 text-xs text-slate-300"><CheckCircle2 className="mb-2 h-4 w-4 text-indigo-300" />{label}</div>)}</div>
+              <p className="blueprint-label text-primary">Secure engineering workspace</p>
+              <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">Turn early signals into defensible reliability decisions.</h1>
+              <p className="mt-4 max-w-lg text-sm leading-7 text-muted-foreground">Sign in to inspect lot-relative evidence, 168&nbsp;h forecasts, uncertainty, safety boundaries and human QA decisions in one traceable console.</p>
+              <div className="mt-6 grid gap-2 sm:grid-cols-3">{["Evidence-first", "Role-aware", "Audit-ready"].map(label => <div key={label} className="border border-border bg-card px-3 py-2.5 text-xs text-muted-foreground"><CheckCircle2 className="mb-1.5 h-4 w-4 text-primary" />{label}</div>)}</div>
             </div>
-            <div className="rounded-3xl border border-indigo-400/20 bg-[#1E293B]/90 p-6 shadow-2xl shadow-indigo-950/30 backdrop-blur sm:p-8">
-              <div className="flex items-start justify-between gap-4"><div><p className="font-mono text-[10px] uppercase tracking-[0.18em] text-indigo-300">Access checkpoint</p><h2 className="mt-3 text-2xl font-semibold text-white">Sign in to continue</h2></div><div className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-200">Secure</div></div>
-              {(callbackError || loginError) && <div className="mt-5 flex gap-3 rounded-xl border border-rose-400/30 bg-rose-400/10 p-3 text-sm text-rose-100"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{loginError ?? "Sign-in could not be completed. Start a fresh authorization attempt."}</span></div>}
-              <p className="mt-5 text-sm leading-6 text-slate-300">Authentication is required before accessing reliability data and controlled QA actions.</p>
-              <Button onClick={handleSignIn} disabled={isLaunching} size="lg" className="mt-7 h-12 w-full justify-between bg-indigo-500 px-5 text-white shadow-lg shadow-indigo-950/30 hover:bg-indigo-400">{isLaunching ? "Opening Google sign-in…" : "Continue with Google"}{isLaunching ? <RefreshCw className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}</Button>
-              <Button variant="ghost" onClick={handleRetry} className="mt-3 w-full text-slate-300 hover:bg-slate-700/50 hover:text-white"><RefreshCw className="mr-2 h-4 w-4" />Check session again</Button>
-              <Button variant="outline" onClick={enterDemoPreview} className="mt-2 w-full border-slate-700 bg-slate-900/40 text-slate-300 hover:bg-slate-800 hover:text-white">Preview synthetic dataset (read-only)</Button>
-              <p className="mt-5 text-center text-[11px] text-slate-500">{lastChecked ? `Last checked ${lastChecked.toLocaleTimeString()}` : "Authentication is handled securely by Google."}</p>
+            <div className="border border-border bg-card p-6 sm:p-7">
+              <div className="flex items-start justify-between gap-4">
+                <div><p className="blueprint-label">Access checkpoint</p><h2 className="mt-2 font-serif text-xl font-semibold">Sign in to continue</h2></div>
+                <span className="border border-emerald-500/30 bg-emerald-500/5 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-600 dark:text-emerald-300">Secure</span>
+              </div>
+              {(callbackError || loginError) && <div className="mt-4 flex gap-2 border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{loginError ?? "Sign-in could not be completed. Start a fresh authorization attempt."}</span></div>}
+              <p className="mt-4 text-sm leading-6 text-muted-foreground">Authentication is required before accessing reliability data and controlled QA actions.</p>
+              <Button onClick={handleSignIn} disabled={isLaunching} size="lg" className="mt-5 h-11 w-full justify-between px-4">{isLaunching ? "Opening Google sign-in…" : "Continue with Google"}{isLaunching ? <RefreshCw className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}</Button>
+              <Button variant="ghost" onClick={handleRetry} className="mt-2 w-full"><RefreshCw className="mr-2 h-4 w-4" />Check session again</Button>
+              <Button variant="outline" onClick={enterDemoPreview} className="mt-2 w-full">Preview synthetic dataset (read-only)</Button>
+              {import.meta.env.DEV && (
+                <div className="mt-4 border-t border-border pt-3">
+                  <p className="blueprint-label mb-2">Developer sign-in · local only</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(["scientist", "qa", "admin"] as const).map(r => (
+                      <a key={r} href={`/api/auth/dev?role=${r}`} className="border border-border bg-card px-2 py-1.5 text-center text-[11px] font-medium capitalize hover:bg-accent">
+                        {r === "scientist" ? "Engineer" : r}
+                      </a>
+                    ))}
+                  </div>
+                  <p className="mt-1.5 text-[10px] text-muted-foreground">Real session, full write access. Not available in production builds.</p>
+                </div>
+              )}
+              <p className="mt-4 text-center text-[11px] text-muted-foreground">{lastChecked ? `Last checked ${lastChecked.toLocaleTimeString()}` : "Authentication is handled securely by Google."}</p>
             </div>
           </div>
-        </div>
+        </main>
+        <GovFooter />
       </div>
     );
   }
 
   return (
-    <SidebarProvider
-      style={
-        {
-          "--sidebar-width": `${sidebarWidth}px`,
-        } as CSSProperties
-      }
-    >
-      <DashboardLayoutContent setSidebarWidth={setSidebarWidth} demoPreview={effectiveDemoPreview}>
-        {children}
-      </DashboardLayoutContent>
-    </SidebarProvider>
+    <div className="flex min-h-svh flex-col">
+      <GovMasthead />
+      <SidebarProvider
+        className="flex-1"
+        style={
+          {
+            "--sidebar-width": `${sidebarWidth}px`,
+          } as CSSProperties
+        }
+      >
+        <DashboardLayoutContent setSidebarWidth={setSidebarWidth} demoPreview={effectiveDemoPreview}>
+          {children}
+        </DashboardLayoutContent>
+      </SidebarProvider>
+      <GovFooter />
+    </div>
   );
 }
 
@@ -158,7 +180,8 @@ function DashboardLayoutContent({
   const [logoutOpen, setLogoutOpen] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const activeMenuItem = menuItems.find(item => item.path === location);
-  const visibleMenuItems = menuItems.filter(item => (item.path !== "/configuration" && item.path !== "/admin/users") || user?.role === "admin" || demoPreview);
+  const effectiveRole = user?.role ?? (demoPreview ? getDemoRole() : undefined);
+  const visibleMenuItems = filterMenuItems(effectiveRole);
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -306,7 +329,7 @@ function DashboardLayoutContent({
       </div>
 
       <SidebarInset>
-        <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-border bg-background/95 px-3 backdrop-blur supports-[backdrop-filter]:backdrop-blur sm:px-5">
+        <header style={{ top: "var(--gov-mast)" }} className="sticky z-30 flex h-14 items-center justify-between border-b border-border bg-background/95 px-3 backdrop-blur supports-[backdrop-filter]:backdrop-blur sm:px-5">
           <div className="flex min-w-0 items-center gap-2">
             {isMobile && <SidebarTrigger className="h-9 w-9 rounded-lg bg-background" />}
             <span className="truncate text-sm font-medium tracking-tight text-foreground">

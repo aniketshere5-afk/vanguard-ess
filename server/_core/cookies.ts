@@ -41,13 +41,17 @@ export function getSessionCookieOptions(
   //       ? hostname
   //       : undefined;
 
+  // The managed preview terminates TLS before forwarding to the container;
+  // use the forwarded protocol and treat non-local hostnames as HTTPS so the
+  // browser accepts the callback session cookie on the public preview URL.
+  const secure = isSecureRequest(req) || isRemoteHost;
   return {
     httpOnly: true,
     path: "/",
-    sameSite: "none",
-    // The managed preview terminates TLS before forwarding to the container;
-    // use the forwarded protocol and treat non-local hostnames as HTTPS so the
-    // browser accepts the callback session cookie on the public preview URL.
-    secure: isSecureRequest(req) || isRemoteHost,
+    // A `SameSite=None` cookie is rejected by browsers unless it is also
+    // `Secure`, which breaks plain-HTTP localhost. Fall back to `Lax` there —
+    // the auth flows are all top-level redirect GETs, which Lax allows.
+    sameSite: secure ? "none" : "lax",
+    secure,
   };
 }

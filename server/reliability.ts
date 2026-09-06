@@ -20,7 +20,37 @@ export type ReliabilityResult = {
   evidence: Array<{ label: string; value: string; severity: "positive" | "warning" | "critical" | "neutral" }>;
   featureContributions: Array<{ label: string; contribution: number }>;
   uncertaintyLevel: "LOW" | "MODERATE" | "HIGH" | "UNKNOWN";
+  staticExplanation: StaticExplanation;
+  shap: ShapExplanation | null;
   modelVersion: string;
+};
+
+export type StaticExplanation = {
+  verdict: "PASS" | "FAIL" | "UNKNOWN";
+  measured: number | null;
+  limit: number;
+  margin: number | null;
+  marginPct: number | null;
+  reason: string;
+};
+
+export type ShapFeature = {
+  key: string;
+  label: string;
+  value: number;
+  baseline: number;
+  contribution: number;
+  direction: "increases" | "decreases" | "neutral";
+};
+
+export type ShapExplanation = {
+  method: string;
+  peerCount: number;
+  baseValue: number;
+  prediction: number;
+  features: ShapFeature[];
+  summary: string;
+  caveat: string;
 };
 
 const median = (xs: number[]) => { const a = [...xs].sort((x, y) => x - y); if (!a.length) return null; const m = Math.floor(a.length / 2); return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; };
@@ -28,7 +58,37 @@ const quantile = (xs: number[], q: number) => { const a = [...xs].sort((x, y) =>
 const clamp = (n: number, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, n));
 const sigmoid = (x: number) => 1 / (1 + Math.exp(-x));
 
-export function computeReliability(points: Point[], peerInitialValues: number[], specificationMax: number, configuredSafetyBoundary: number): ReliabilityResult {
+// Evidence weights for the Predictive Reliability Risk Score. They sum to 1,
+// so the score is a convex combination of five 0-100 sub-risks and the exact
+// linear-SHAP decomposition below is guaranteed to reconcile with it.
+export const RISK_WEIGHTS = {
+  staticRisk: 0.08,
+  dynamicRisk: 0.28,
+  driftRisk: 0.24,
+  boundaryRisk: 0.25,
+  uncertaintyRisk: 0.15,
+} as const;
+
+type RiskFeatureKey = keyof typeof RISK_WEIGHTS;
+export type RiskFeatures = Record<RiskFeatureKey, number>;
+
+const FEATURE_LABELS: Record<RiskFeatureKey, string> = {
+  staticRisk: "Static specification compliance",
+  dynamicRisk: "Lot-relative anomaly",
+  driftRisk: "Early drift trajectory",
+  boundaryRisk: "Safety-boundary proximity",
+  uncertaintyRisk: "Prediction uncertainty",
+};
+
+const round1 = (n: number) => Math.round(n * 10) / 10;
+
+/**
+ * Deterministic core: everything the risk model needs, plus the five
+ * sub-risk features it is built from. Shared by the primary computation and
+ * by the per-peer passes that build the SHAP baseline, so the two can never
+ * drift apart.
+ */
+function computeCore(points: Point[], peerInitialValues: number[], specificationMax: number, configuredSafetyBoundary: number) {
   const ordered = [...points].sort((a, b) => a.checkpointHours - b.checkpointHours);
   const initial = ordered.find(p => p.checkpointHours === 0)?.value ?? ordered[0]?.value ?? null;
   const at24 = ordered.find(p => p.checkpointHours === 24)?.value ?? null;
@@ -44,7 +104,7 @@ export function computeReliability(points: Point[], peerInitialValues: number[],
   const percentileDistance = initial != null && peerInitialValues.length ? clamp(Math.abs((peerInitialValues.filter(v => v <= initial!).length / peerInitialValues.length) - .5) * 200) : 0;
   const thresholdEvidence = initial != null && peerMedian != null && mad != null && initial > (peerMedian + 3 * (mad || 1)) ? 100 : percentileDistance;
   const anomalyScore = enoughPeers && robustZ != null ? Math.round(clamp(.7 * robustEvidence + .3 * thresholdEvidence) * 10) / 10 : null;
-  const dynamicResult = !enoughPeers || robustZ == null ? "INSUFFICIENT_DATA" : (anomalyScore! >= 60 ? "ANOMALOUS" : "NORMAL");
+  const dynamicResult: "NORMAL" | "ANOMALOUS" | "INSUFFICIENT_DATA" = !enoughPeers || robustZ == null ? "INSUFFICIENT_DATA" : (anomalyScore! >= 60 ? "ANOMALOUS" : "NORMAL");
   const first = ordered[0]; const lastKnown = ordered.find(p => p.checkpointHours === 24) ?? ordered[ordered.length - 1];
   const slope = first && lastKnown && lastKnown.checkpointHours > first.checkpointHours ? (lastKnown.value - first.value) / (lastKnown.checkpointHours - first.checkpointHours) : null;
   const driftPercent = first && lastKnown ? (lastKnown.value - first.value) / Math.max(Math.abs(first.value), .0001) * 100 : null;
@@ -52,29 +112,110 @@ export function computeReliability(points: Point[], peerInitialValues: number[],
   const residualScale = peerInitialValues.length >= 2 ? Math.max(0.25, (quantile(peerInitialValues, .75)! - quantile(peerInitialValues, .25)!) * 1.25) : null;
   const interval = predicted != null && residualScale != null ? [Math.max(0, predicted - residualScale), predicted + residualScale] as [number, number] : null;
   const margin = predicted != null ? configuredSafetyBoundary - predicted : null;
-  const boundaryStatus = margin == null ? "UNKNOWN" : margin < 0 ? "CROSSES" : margin < configuredSafetyBoundary * .1 ? "WATCH" : "CLEAR";
-  const uncertaintyLevel = residualScale == null ? "UNKNOWN" : residualScale > configuredSafetyBoundary * .15 ? "HIGH" : residualScale > configuredSafetyBoundary * .08 ? "MODERATE" : "LOW";
-  const staticResult = initial != null && initial <= specificationMax ? "PASS" : "FAIL";
-  const staticRisk = staticResult === "FAIL" ? 100 : 0;
-  const dynamicRisk = anomalyScore ?? 35;
-  const driftRisk = slope == null ? 35 : clamp(sigmoid((slope * 168 - configuredSafetyBoundary * .05) / Math.max(configuredSafetyBoundary * .08, .01)) * 100);
-  const boundaryRisk = margin == null ? 35 : clamp((1 - margin / configuredSafetyBoundary) * 100);
-  const uncertaintyRisk = uncertaintyLevel === "HIGH" ? 75 : uncertaintyLevel === "MODERATE" ? 45 : uncertaintyLevel === "LOW" ? 15 : 40;
-  const riskScore = Math.round(clamp(.08 * staticRisk + .28 * dynamicRisk + .24 * driftRisk + .25 * boundaryRisk + .15 * uncertaintyRisk) * 10) / 10;
+  const boundaryStatus: "CLEAR" | "WATCH" | "CROSSES" | "UNKNOWN" = margin == null ? "UNKNOWN" : margin < 0 ? "CROSSES" : margin < configuredSafetyBoundary * .1 ? "WATCH" : "CLEAR";
+  const uncertaintyLevel: "LOW" | "MODERATE" | "HIGH" | "UNKNOWN" = residualScale == null ? "UNKNOWN" : residualScale > configuredSafetyBoundary * .15 ? "HIGH" : residualScale > configuredSafetyBoundary * .08 ? "MODERATE" : "LOW";
+  const staticResult: "PASS" | "FAIL" = initial != null && initial <= specificationMax ? "PASS" : "FAIL";
+  const features: RiskFeatures = {
+    staticRisk: staticResult === "FAIL" ? 100 : 0,
+    dynamicRisk: anomalyScore ?? 35,
+    driftRisk: slope == null ? 35 : clamp(sigmoid((slope * 168 - configuredSafetyBoundary * .05) / Math.max(configuredSafetyBoundary * .08, .01)) * 100),
+    boundaryRisk: margin == null ? 35 : clamp((1 - margin / configuredSafetyBoundary) * 100),
+    uncertaintyRisk: uncertaintyLevel === "HIGH" ? 75 : uncertaintyLevel === "MODERATE" ? 45 : uncertaintyLevel === "LOW" ? 15 : 40,
+  };
+  const rawRisk = (Object.keys(RISK_WEIGHTS) as RiskFeatureKey[]).reduce((sum, key) => sum + RISK_WEIGHTS[key] * features[key], 0);
+  return {
+    ordered, initial, at24, peerMedian, mad, iqr, robustZ, enoughPeers, robustEvidence, thresholdEvidence,
+    anomalyScore, dynamicResult, slope, driftPercent, predicted, residualScale, interval, margin,
+    boundaryStatus, uncertaintyLevel, staticResult, features, rawRisk,
+    riskScore: round1(clamp(rawRisk)),
+  };
+}
+
+/**
+ * Exact SHAP for the linear risk model. For a linear model the Shapley value
+ * of feature i is w_i * (x_i - E[x_i]); we estimate E[x_i] as the mean of that
+ * feature across the lot's peer components. baseValue + Σ contributions then
+ * equals the model's raw score by construction.
+ */
+export function explainRisk(target: RiskFeatures, peerFeatureSets: RiskFeatures[]): ShapExplanation | null {
+  const peers = peerFeatureSets.filter(Boolean);
+  if (peers.length < 3) return null;
+  const keys = Object.keys(RISK_WEIGHTS) as RiskFeatureKey[];
+  const mean = (key: RiskFeatureKey) => peers.reduce((sum, p) => sum + p[key], 0) / peers.length;
+  const baseValue = keys.reduce((sum, key) => sum + RISK_WEIGHTS[key] * mean(key), 0);
+  const features: ShapFeature[] = keys
+    .map(key => {
+      const baseline = mean(key);
+      const value = target[key];
+      const contribution = RISK_WEIGHTS[key] * (value - baseline);
+      return {
+        key,
+        label: FEATURE_LABELS[key],
+        value: round1(value),
+        baseline: round1(baseline),
+        contribution: round1(contribution),
+        direction: contribution > 0.5 ? "increases" as const : contribution < -0.5 ? "decreases" as const : "neutral" as const,
+      };
+    })
+    .sort((a, b) => Math.abs(b.contribution) - Math.abs(a.contribution));
+  const prediction = round1(baseValue + features.reduce((sum, f) => sum + f.contribution, 0));
+  const top = features[0];
+  const summary = top && top.direction !== "neutral"
+    ? `Risk is ${round1(prediction - baseValue) >= 0 ? "above" : "below"} a typical peer's, driven mostly by ${top.label.toLowerCase()}, which ${top.direction} the score by ${Math.abs(top.contribution).toFixed(1)} points.`
+    : "Every feature is close to the lot average, so this component's risk is typical for its peer group.";
+  return {
+    method: "Exact linear SHAP (baseline = lot peer mean)",
+    peerCount: peers.length,
+    baseValue: round1(baseValue),
+    prediction,
+    features,
+    summary,
+    caveat: "Contributions are model influence on the risk score, computed against this lot's peers — not a proven physical failure cause.",
+  };
+}
+
+export function computeReliability(points: Point[], peerInitialValues: number[], specificationMax: number, configuredSafetyBoundary: number, peerPointSets: Point[][] = []): ReliabilityResult {
+  const core = computeCore(points, peerInitialValues, specificationMax, configuredSafetyBoundary);
+  const {
+    ordered, initial, peerMedian, mad, iqr, robustZ, enoughPeers, robustEvidence, thresholdEvidence,
+    anomalyScore, dynamicResult, slope, driftPercent, predicted, interval, margin,
+    boundaryStatus, uncertaintyLevel, staticResult, features, riskScore,
+  } = core;
+  void ordered;
+  const { staticRisk, dynamicRisk, driftRisk, boundaryRisk, uncertaintyRisk } = features;
   const riskBand = riskScore <= 20 ? "NORMAL" : riskScore <= 40 ? "WATCH" : riskScore <= 60 ? "SUSPICIOUS" : riskScore <= 80 ? "HIGH RISK" : "CRITICAL";
   const suggestedAction = riskScore >= 80 ? "Hold for Review" : riskScore >= 60 ? "Extended Burn-In" : riskScore >= 41 ? "Re-test" : "Standard Screening";
+
+  const staticExplanation: StaticExplanation = {
+    verdict: initial == null ? "UNKNOWN" : staticResult,
+    measured: initial,
+    limit: specificationMax,
+    margin: initial == null ? null : round1(specificationMax - initial),
+    marginPct: initial == null || specificationMax === 0 ? null : round1((specificationMax - initial) / specificationMax * 100),
+    reason: initial == null
+      ? "No 0h measurement was supplied, so static specification screening could not run."
+      : staticResult === "PASS"
+        ? `Initial leakage ${initial.toFixed(2)} µA sits ${(specificationMax - initial).toFixed(2)} µA below the ${specificationMax.toFixed(2)} µA specification limit (${round1((specificationMax - initial) / specificationMax * 100)}% margin).`
+        : `Initial leakage ${initial.toFixed(2)} µA exceeds the ${specificationMax.toFixed(2)} µA specification limit by ${(initial - specificationMax).toFixed(2)} µA.`,
+  };
+
+  const peerFeatureSets = peerPointSets
+    .filter(peer => peer.length >= 2)
+    .map(peer => computeCore(peer, peerInitialValues, specificationMax, configuredSafetyBoundary).features);
+  const shap = explainRisk(features, peerFeatureSets);
+
   const evidence = [
     { label: "Static specification", value: initial == null ? "No initial measurement" : `${initial.toFixed(2)} µA ≤ ${specificationMax.toFixed(2)} µA · ${staticResult}`, severity: staticResult === "PASS" ? "positive" : "critical" },
-    { label: "Lot-relative baseline", value: peerMedian == null ? "Insufficient peer data" : `${initial!.toFixed(2)} µA vs median ${peerMedian.toFixed(2)} µA · robust z ${robustZ!.toFixed(2)}`, severity: dynamicResult === "ANOMALOUS" ? "warning" : "neutral" },
+    { label: "Lot-relative baseline", value: peerMedian == null || initial == null ? "Insufficient peer data" : `${initial.toFixed(2)} µA vs median ${peerMedian.toFixed(2)} µA · robust z ${robustZ == null ? "n/a" : robustZ.toFixed(2)}`, severity: dynamicResult === "ANOMALOUS" ? "warning" : "neutral" },
     { label: "Hybrid anomaly evidence", value: enoughPeers ? `Robust deviation ${robustEvidence.toFixed(1)} + normalized distribution evidence ${thresholdEvidence.toFixed(1)}` : "Insufficient peer data for hybrid evidence", severity: dynamicResult === "ANOMALOUS" ? "warning" : "neutral" },
     { label: "Early drift", value: driftPercent == null ? "Insufficient temporal data" : `${driftPercent >= 0 ? "+" : ""}${driftPercent.toFixed(1)}% from 0h to 24h`, severity: driftPercent != null && driftPercent > 15 ? "warning" : "neutral" },
-    { label: "168h forecast", value: predicted == null ? "Unable to generate a reliable prediction" : `${predicted.toFixed(2)} µA · interval ${interval![0].toFixed(2)}–${interval![1].toFixed(2)} µA`, severity: boundaryStatus === "CROSSES" ? "critical" : "neutral" },
+    { label: "168h forecast", value: predicted == null ? "Unable to generate a reliable prediction" : interval == null ? `${predicted.toFixed(2)} µA · interval unavailable (needs ≥ 2 lot peers)` : `${predicted.toFixed(2)} µA · interval ${interval[0].toFixed(2)}–${interval[1].toFixed(2)} µA`, severity: boundaryStatus === "CROSSES" ? "critical" : "neutral" },
     { label: "Safety boundary", value: margin == null ? "Unknown" : `${configuredSafetyBoundary.toFixed(2)} µA · margin ${margin.toFixed(2)} µA`, severity: boundaryStatus === "CROSSES" ? "critical" : boundaryStatus === "WATCH" ? "warning" : "positive" },
   ] as ReliabilityResult["evidence"];
   const featureContributions = [
     { label: "Lot deviation", contribution: Math.round(.28 * dynamicRisk * 10) / 10 }, { label: "Boundary proximity", contribution: Math.round(.25 * boundaryRisk * 10) / 10 }, { label: "Early drift", contribution: Math.round(.24 * driftRisk * 10) / 10 }, { label: "Prediction uncertainty", contribution: Math.round(.15 * uncertaintyRisk * 10) / 10 }, { label: "Static compliance", contribution: Math.round(.08 * staticRisk * 10) / 10 },
   ];
-  return { staticResult, lotBaseline: peerMedian, lotMad: mad, lotIqr: iqr, robustZ, dynamicResult, anomalyScore, driftSlope: slope, driftPercent, predicted168h: predicted, predictionInterval: interval, safetyBoundary: configuredSafetyBoundary, boundaryMargin: margin, boundaryStatus, riskScore, riskBand, suggestedAction, evidence, featureContributions, uncertaintyLevel, modelVersion: "PRRS-LINEAR-1.0" };
+  return { staticResult, lotBaseline: peerMedian, lotMad: mad, lotIqr: iqr, robustZ, dynamicResult, anomalyScore, driftSlope: slope, driftPercent, predicted168h: predicted, predictionInterval: interval, safetyBoundary: configuredSafetyBoundary, boundaryMargin: margin, boundaryStatus, riskScore, riskBand, suggestedAction, evidence, featureContributions, uncertaintyLevel, staticExplanation, shap, modelVersion: "PRRS-LINEAR-1.0" };
 }
 
 export function generateSyntheticDemo() {

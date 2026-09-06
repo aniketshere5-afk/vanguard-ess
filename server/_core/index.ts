@@ -4,6 +4,7 @@ import { createServer } from "http";
 import net from "net";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerGoogleAuthRoutes } from "./googleAuth";
+import { registerDevAuthRoutes } from "./devAuth";
 import { registerStorageProxy } from "./storageProxy";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
@@ -46,6 +47,7 @@ async function startServer() {
   });
   registerStorageProxy(app);
   registerGoogleAuthRoutes(app);
+  registerDevAuthRoutes(app);
   // tRPC API
   app.use(
     "/api/trpc",

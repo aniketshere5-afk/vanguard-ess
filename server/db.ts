@@ -13,9 +13,11 @@ import {
   riskScores,
   users,
   InsertUser,
+  Lot,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 import { generateSyntheticDemo, computeReliability, Point } from "./reliability";
+import type { ParsedDataset } from "./ingestion";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 let demoSeedPromise: Promise<void> | null = null;
@@ -91,6 +93,98 @@ export async function recordAudit(
   const db = await getDb();
   if (!db) return;
   await db.insert(auditLogs).values({ action, targetType, targetId, actorId, metadataJson });
+}
+
+export type ImportResult = {
+  lotId: number;
+  lotCode: string;
+  format: ParsedDataset["format"];
+  componentsCreated: number;
+  componentsTotal: number;
+  measurementsInserted: number;
+  notes: string[];
+};
+
+/**
+ * Persist a parsed dataset. Re-importing the same lot is safe: existing
+ * components are matched by code and existing (component, checkpoint)
+ * measurements are left untouched rather than duplicated.
+ */
+export async function importDataset(
+  parsed: ParsedDataset,
+  options: { specificationMax: number; safetyBoundary: number; actorId?: number }
+): Promise<ImportResult> {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not connected");
+  if (!parsed.components.length) throw new Error("No importable components were found in this file");
+
+  let lot = (await db.select().from(lots).where(eq(lots.lotCode, parsed.lotCode)).limit(1))[0];
+  if (!lot) {
+    await db.insert(lots).values({
+      lotCode: parsed.lotCode,
+      deviceFamily: parsed.deviceFamily || "Imported dataset",
+      dataLabel: "Imported Dataset",
+      specificationMax: options.specificationMax.toFixed(4),
+      safetyMargin: options.safetyBoundary.toFixed(4),
+    });
+    lot = (await db.select().from(lots).where(eq(lots.lotCode, parsed.lotCode)).limit(1))[0];
+  }
+  if (!lot) throw new Error("Lot could not be created");
+
+  const existing = await db.select().from(components).where(eq(components.lotId, lot.id));
+  const existingCodes = new Set(existing.map(c => c.componentCode));
+  const toCreate = parsed.components
+    .filter(c => !existingCodes.has(c.componentCode))
+    .map(c => ({ componentCode: c.componentCode, lotId: lot!.id, scenario: c.scenario || "Imported" }));
+  if (toCreate.length) await db.insert(components).values(toCreate);
+
+  const allComponents = await db.select().from(components).where(eq(components.lotId, lot.id));
+  const idByCode = new Map(allComponents.map(c => [c.componentCode, c.id]));
+  const componentIds = allComponents.map(c => c.id);
+  const priorKeys = new Set(
+    (componentIds.length
+      ? await db
+          .select({ componentId: measurements.componentId, checkpointHours: measurements.checkpointHours })
+          .from(measurements)
+          .where(inArray(measurements.componentId, componentIds))
+      : []
+    ).map(row => `${row.componentId}:${row.checkpointHours}`)
+  );
+
+  const measurementRows = parsed.components.flatMap(component => {
+    const componentId = idByCode.get(component.componentCode);
+    if (!componentId) return [];
+    return component.points
+      .filter(point => !priorKeys.has(`${componentId}:${point.checkpointHours}`))
+      .map(point => ({
+        componentId,
+        checkpointHours: point.checkpointHours,
+        leakageCurrent: point.leakageCurrent.toFixed(4),
+        temperatureC: point.temperatureC.toFixed(3),
+        voltageV: point.voltageV.toFixed(3),
+      }));
+  });
+  if (measurementRows.length) await db.insert(measurements).values(measurementRows);
+
+  await recordAudit("DATASET_IMPORTED", "lot", String(lot.id), options.actorId, {
+    lotCode: parsed.lotCode,
+    format: parsed.format,
+    componentsCreated: toCreate.length,
+    measurementsInserted: measurementRows.length,
+    sourceRows: parsed.rowCount,
+  });
+  invalidateAnalysisCache();
+  await refreshModelMetrics();
+
+  return {
+    lotId: lot.id,
+    lotCode: parsed.lotCode,
+    format: parsed.format,
+    componentsCreated: toCreate.length,
+    componentsTotal: parsed.components.length,
+    measurementsInserted: measurementRows.length,
+    notes: parsed.notes,
+  };
 }
 
 /**
@@ -232,7 +326,7 @@ async function seedDemoDataset() {
       version: "PRRS-LINEAR-1.0",
       featureVersion: "temporal-v1",
       datasetId: "synthetic-sih26170-demo-v1",
-      metricsJson: { mae: 1.42, rmse: 2.18, r2: 0.91, validation: "lot-aware holdout" },
+      metricsJson: { validation: "168h holdout on persisted checkpoints", pending: true },
     });
     changed = true;
   }
@@ -243,6 +337,34 @@ async function seedDemoDataset() {
       scenarioCount: demo.scenarios.length,
     });
   }
+  // Metrics are computed from the data, not hardcoded.
+  await refreshModelMetrics();
+}
+
+/**
+ * Remove a lot and every row that depends on it, in foreign-key-safe order.
+ * Used to roll back an imported dataset (and to keep test databases clean).
+ */
+export async function deleteLotByCode(lotCode: string): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const lot = (await db.select().from(lots).where(eq(lots.lotCode, lotCode)).limit(1))[0];
+  if (!lot) return false;
+  const lotComponents = await db.select({ id: components.id }).from(components).where(eq(components.lotId, lot.id));
+  const ids = lotComponents.map(c => c.id);
+  if (ids.length) {
+    const invRows = await db.select({ id: investigations.id }).from(investigations).where(inArray(investigations.componentId, ids));
+    const invIds = invRows.map(i => i.id);
+    if (invIds.length) await db.delete(decisions).where(inArray(decisions.investigationId, invIds));
+    await db.delete(investigations).where(inArray(investigations.componentId, ids));
+    await db.delete(riskScores).where(inArray(riskScores.componentId, ids));
+    await db.delete(driftPredictions).where(inArray(driftPredictions.componentId, ids));
+    await db.delete(analysisRuns).where(inArray(analysisRuns.componentId, ids));
+    await db.delete(measurements).where(inArray(measurements.componentId, ids));
+    await db.delete(components).where(inArray(components.id, ids));
+  }
+  await db.delete(lots).where(eq(lots.id, lot.id));
+  return true;
 }
 
 export function ensureDemoDataset() {
@@ -286,6 +408,36 @@ export async function getLot(id: number) {
   return (await db.select().from(lots).where(eq(lots.id, id)).limit(1))[0];
 }
 
+/**
+ * Persist a lot's screening parameters. These feed computeReliability directly,
+ * so every later analysis for the lot uses the new values. Cached analysis_runs
+ * are cleared so stale scores are not shown after a threshold change.
+ */
+export async function updateLotConfig(
+  id: number,
+  patch: { specificationMax?: number; safetyBoundary?: number },
+  actorId?: number,
+): Promise<Lot | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  const set: Record<string, string> = {};
+  if (patch.specificationMax != null) set.specificationMax = patch.specificationMax.toFixed(4);
+  if (patch.safetyBoundary != null) set.safetyMargin = patch.safetyBoundary.toFixed(4);
+  if (!Object.keys(set).length) return getLot(id);
+  await db.update(lots).set(set).where(eq(lots.id, id));
+
+  const lotComponents = await db.select({ id: components.id }).from(components).where(eq(components.lotId, id));
+  const ids = lotComponents.map(c => c.id);
+  if (ids.length) {
+    await db.delete(riskScores).where(inArray(riskScores.componentId, ids));
+    await db.delete(driftPredictions).where(inArray(driftPredictions.componentId, ids));
+    await db.delete(analysisRuns).where(inArray(analysisRuns.componentId, ids));
+  }
+  invalidateAnalysisCache();
+  await recordAudit("CONFIGURATION_CHANGED", "lot", String(id), actorId, patch);
+  return getLot(id);
+}
+
 export async function getLatestAnalysis(componentId: number) {
   const db = await getDb();
   if (!db) return undefined;
@@ -305,6 +457,7 @@ export async function saveAnalysis(componentId: number, result: unknown, status:
   const db = await getDb();
   if (!db) return undefined;
   await db.insert(analysisRuns).values({ componentId, resultJson: result, status, modelVersion });
+  invalidateAnalysisCache(componentId);
   const row = await getLatestAnalysis(componentId);
   const analytic = result as {
     predicted168h: number | null;
@@ -382,7 +535,29 @@ export async function getModels() {
   return db.select().from(modelVersions).orderBy(desc(modelVersions.trainedAt));
 }
 
-export async function computeComponentAnalysis(componentId: number, persist = true) {
+// Short-lived cache. computeComponentAnalysis is called many times per page
+// (components.get, predictions.get, explanations.get, and once per component
+// in dashboard.summary), and every call scans the whole lot. A small TTL plus
+// explicit invalidation keeps a dashboard load from doing O(components^2) work.
+type AnalysisResult = {
+  component: NonNullable<Awaited<ReturnType<typeof getComponent>>>;
+  lot: NonNullable<Awaited<ReturnType<typeof getLot>>>;
+  measurements: Awaited<ReturnType<typeof getMeasurements>>;
+  result: ReturnType<typeof computeReliability>;
+};
+const analysisCache = new Map<number, { at: number; value: AnalysisResult }>();
+const ANALYSIS_TTL_MS = 10_000;
+
+export function invalidateAnalysisCache(componentId?: number) {
+  if (componentId == null) analysisCache.clear();
+  else analysisCache.delete(componentId);
+}
+
+export async function computeComponentAnalysis(componentId: number, persist = false) {
+  if (!persist) {
+    const hit = analysisCache.get(componentId);
+    if (hit && Date.now() - hit.at < ANALYSIS_TTL_MS) return hit.value;
+  }
   const component = await getComponent(componentId);
   if (!component) throw new Error("Component not found");
   const lot = await getLot(component.lotId);
@@ -394,7 +569,56 @@ export async function computeComponentAnalysis(componentId: number, persist = tr
     .map(rows => Number(rows.find(r => r.checkpointHours === 0)?.leakageCurrent))
     .filter(Number.isFinite);
   const points: Point[] = ms.map(m => ({ checkpointHours: m.checkpointHours, value: Number(m.leakageCurrent) }));
-  const result = computeReliability(points, peerInitialValues, Number(lot.specificationMax), Number(lot.safetyMargin));
+  const peerPointSets: Point[][] = peerMs.map(rows => rows.map(m => ({ checkpointHours: m.checkpointHours, value: Number(m.leakageCurrent) })));
+  const result = computeReliability(points, peerInitialValues, Number(lot.specificationMax), Number(lot.safetyMargin), peerPointSets);
   if (persist) await saveAnalysis(componentId, result, "COMPLETE", result.modelVersion);
-  return { component, lot, measurements: ms, result };
+  const value = { component, lot, measurements: ms, result };
+  analysisCache.set(componentId, { at: Date.now(), value });
+  return value;
+}
+
+/**
+ * Evaluate the 168h forecaster against components that actually reached a 168h
+ * checkpoint: predict from the 0h/24h slope and compare with the measured
+ * value. Returns real MAE / RMSE / R^2 (null when there is nothing to score).
+ */
+export async function evaluateForecaster(): Promise<{ mae: number; rmse: number; r2: number; n: number } | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const allComponents = await db.select({ id: components.id }).from(components);
+  const pairs: Array<{ predicted: number; actual: number }> = [];
+  for (const { id } of allComponents) {
+    const ms = await getMeasurements(id);
+    const at0 = ms.find(m => m.checkpointHours === 0);
+    const at24 = ms.find(m => m.checkpointHours === 24);
+    const at168 = ms.find(m => m.checkpointHours === 168);
+    if (!at0 || !at24 || !at168) continue;
+    const v0 = Number(at0.leakageCurrent);
+    const slope = (Number(at24.leakageCurrent) - v0) / 24;
+    pairs.push({ predicted: v0 + slope * 168, actual: Number(at168.leakageCurrent) });
+  }
+  if (pairs.length < 3) return null;
+  const n = pairs.length;
+  const errs = pairs.map(p => p.predicted - p.actual);
+  const mae = errs.reduce((s, e) => s + Math.abs(e), 0) / n;
+  const rmse = Math.sqrt(errs.reduce((s, e) => s + e * e, 0) / n);
+  const meanActual = pairs.reduce((s, p) => s + p.actual, 0) / n;
+  const ssTot = pairs.reduce((s, p) => s + (p.actual - meanActual) ** 2, 0);
+  const ssRes = errs.reduce((s, e) => s + e * e, 0);
+  const r2 = ssTot === 0 ? 0 : 1 - ssRes / ssTot;
+  return { mae: round2(mae), rmse: round2(rmse), r2: round2(r2), n };
+}
+
+const round2 = (x: number) => Math.round(x * 100) / 100;
+
+/** Recompute forecaster metrics from current data and store them on the model row. */
+export async function refreshModelMetrics(): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  const metrics = await evaluateForecaster();
+  if (!metrics) return;
+  await db
+    .update(modelVersions)
+    .set({ metricsJson: { ...metrics, validation: "168h holdout on persisted checkpoints" } })
+    .where(eq(modelVersions.version, "PRRS-LINEAR-1.0"));
 }
