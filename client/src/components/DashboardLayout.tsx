@@ -118,6 +118,19 @@ export default function DashboardLayout({
               <Button onClick={handleSignIn} disabled={isLaunching} size="lg" className="mt-5 h-11 w-full justify-between px-4">{isLaunching ? "Opening Google sign-in…" : "Continue with Google"}{isLaunching ? <RefreshCw className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}</Button>
               <Button variant="ghost" onClick={handleRetry} className="mt-2 w-full"><RefreshCw className="mr-2 h-4 w-4" />Check session again</Button>
               <Button variant="outline" onClick={enterDemoPreview} className="mt-2 w-full">Preview synthetic dataset (read-only)</Button>
+              {import.meta.env.DEV && (
+                <div className="mt-4 border-t border-border pt-3">
+                  <p className="blueprint-label mb-2">Developer sign-in · local only</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(["scientist", "qa", "admin"] as const).map(r => (
+                      <a key={r} href={`/api/auth/dev?role=${r}`} className="border border-border bg-card px-2 py-1.5 text-center text-[11px] font-medium capitalize hover:bg-accent">
+                        {r === "scientist" ? "Engineer" : r}
+                      </a>
+                    ))}
+                  </div>
+                  <p className="mt-1.5 text-[10px] text-muted-foreground">Real session, full write access. Not available in production builds.</p>
+                </div>
+              )}
               <p className="mt-4 text-center text-[11px] text-muted-foreground">{lastChecked ? `Last checked ${lastChecked.toLocaleTimeString()}` : "Authentication is handled securely by Google."}</p>
             </div>
           </div>
