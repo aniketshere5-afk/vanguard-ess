@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, it } from "vitest";
 import { detectFormat, parseDataset } from "./ingestion";
-import { importDataset, computeComponentAnalysis, getComponents, deleteLotByCode, updateLotConfig, getLot } from "./db";
+import { importDataset, computeComponentAnalysis, getComponents, deleteLotByCode, updateLotConfig, getLot, invalidateAnalysisCache, evaluateForecaster, ensureDemoDataset, refreshModelMetrics, getModels } from "./db";
 
 const importedLotCodes: string[] = [];
 afterAll(async () => {
@@ -119,5 +119,36 @@ describe("dataset import (requires DATABASE_URL)", () => {
     const after = await computeComponentAnalysis(componentId, false);
     expect(after.result.safetyBoundary).toBe(20);
     expect(after.result.boundaryMargin).not.toBe(before.result.boundaryMargin);
+  });
+});
+
+describe("analysis caching and model metrics (requires DATABASE_URL)", () => {
+  it("caches read-only analysis and drops it on invalidation", async () => {
+    if (!process.env.DATABASE_URL) return;
+    await ensureDemoDataset();
+    const id = (await getComponents())[0].id;
+    invalidateAnalysisCache(id);
+    const first = await computeComponentAnalysis(id, false);
+    const second = await computeComponentAnalysis(id, false);
+    expect(second).toBe(first); // same cached object reference
+    invalidateAnalysisCache(id);
+    const third = await computeComponentAnalysis(id, false);
+    expect(third).not.toBe(first);
+  });
+
+  it("computes real forecaster metrics from persisted checkpoints", async () => {
+    if (!process.env.DATABASE_URL) return;
+    await ensureDemoDataset();
+    const metrics = await evaluateForecaster();
+    expect(metrics).not.toBeNull();
+    expect(metrics!.n).toBeGreaterThanOrEqual(3);
+    for (const k of ["mae", "rmse", "r2"] as const) expect(Number.isFinite(metrics![k])).toBe(true);
+
+    await refreshModelMetrics();
+    const model = (await getModels()).find(m => m.version === "PRRS-LINEAR-1.0");
+    const stored = model?.metricsJson as Record<string, unknown>;
+    expect(stored.pending).toBeUndefined();
+    expect(stored.mae).toBeCloseTo(metrics!.mae, 2);
+    expect(stored.validation).toContain("holdout");
   });
 });
