@@ -1,26 +1,58 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { COOKIE_NAME } from "@shared/const";
+import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
+import { sdk } from "./_core/sdk";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { validateCsv } from "./reliability";
 import { parseDataset } from "./ingestion";
-import { ensureDemoDataset, getLots, getLot, getComponents, getComponent, getMeasurements, getLatestAnalysis, getLatestAnalyses, computeComponentAnalysis, createInvestigation, closeInvestigation, getAuditLogs, getInvestigations, getDecisions, getModels, recordAudit, updateUserProfile, listUsers, updateUserRole, importDataset, updateLotConfig } from "./db";
+import { ensureDemoDataset, getLots, getLot, getComponents, getComponent, getMeasurements, getLatestAnalysis, getLatestAnalyses, computeComponentAnalysis, createInvestigation, closeInvestigation, getAuditLogs, getInvestigations, getDecisions, getModels, recordAudit, updateUserProfile, listUsers, updateUserRole, importDataset, updateLotConfig, upsertUser } from "./db";
+
+/**
+ * Fixed, publicly-documented demo accounts for hackathon/judge access.
+ * These are intentionally not secret — see README "Demo accounts" section.
+ * Never used as a stand-in for real authentication in a security-sensitive
+ * deployment; this is a prototype convenience only.
+ */
+const DEMO_ACCOUNTS: Record<string, { password: string; role: "admin" | "scientist" | "qa"; name: string }> = {
+  "DEMO-ADMIN": { password: "demo-admin", role: "admin", name: "Demo Admin" },
+  "DEMO-SCIENTIST": { password: "demo-scientist", role: "scientist", name: "Demo Scientist" },
+  "DEMO-QA": { password: "demo-qa", role: "qa", name: "Demo QA Engineer" },
+};
 
 const decisionSchema = z.enum(["Accept", "Hold", "Re-test", "Extend Burn-In", "Reject", "Investigate Further"]);
 export const roleGuard = (role: string) => role === "admin" || role === "qa";
 const scientistGuard = (role: string) => role === "admin" || role === "scientist" || role === "user";
 export const adminGuard = (role: string) => role === "admin";
-export const isDemoPreviewRequest = (req: { headers: Record<string, unknown> }) => req.headers["x-vanguard-preview"] === "demo";
 const scientistProcedure = protectedProcedure.use(({ ctx, next }) => scientistGuard(ctx.user.role) ? next() : Promise.reject(new TRPCError({ code: "FORBIDDEN", message: "Scientist / Reliability Engineer role required" })));
 const qaProcedure = protectedProcedure.use(({ ctx, next }) => roleGuard(ctx.user.role) ? next() : Promise.reject(new TRPCError({ code: "FORBIDDEN", message: "QA Engineer role required" })));
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => adminGuard(ctx.user.role) ? next() : Promise.reject(new TRPCError({ code: "FORBIDDEN", message: "Admin role required" })));
-const readProcedure = publicProcedure.use(({ ctx, next }) => ctx.user || isDemoPreviewRequest(ctx.req) ? next() : Promise.reject(new TRPCError({ code: "UNAUTHORIZED", message: "Authentication required" })));
+const readProcedure = publicProcedure.use(({ ctx, next }) => ctx.user ? next() : Promise.reject(new TRPCError({ code: "UNAUTHORIZED", message: "Authentication required" })));
 
 export const appRouter = router({
   system: systemRouter,
-  auth: router({ me: publicProcedure.query(async opts => { if (opts.ctx.user) await recordAudit("LOGIN_SESSION_OBSERVED", "user", String(opts.ctx.user.id), opts.ctx.user.id); return opts.ctx.user; }), updateProfile: protectedProcedure.input(z.object({ name: z.string().trim().min(2).max(120), email: z.string().trim().email().max(320) })).mutation(async ({ input, ctx }) => { const user = await updateUserProfile(ctx.user.openId, input); if (!user) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Profile could not be saved" }); await recordAudit("PROFILE_UPDATED", "user", String(ctx.user.id), ctx.user.id, { fields: ["name", "email"] }); return user; }), logout: publicProcedure.mutation(({ ctx }) => { const cookieOptions = getSessionCookieOptions(ctx.req); ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 }); return { success: true } as const; }) }),
+  auth: router({
+    me: publicProcedure.query(async opts => { if (opts.ctx.user) await recordAudit("LOGIN_SESSION_OBSERVED", "user", String(opts.ctx.user.id), opts.ctx.user.id); return opts.ctx.user; }),
+    updateProfile: protectedProcedure.input(z.object({ name: z.string().trim().min(2).max(120), email: z.string().trim().email().max(320) })).mutation(async ({ input, ctx }) => { const user = await updateUserProfile(ctx.user.openId, input); if (!user) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Profile could not be saved" }); await recordAudit("PROFILE_UPDATED", "user", String(ctx.user.id), ctx.user.id, { fields: ["name", "email"] }); return user; }),
+    logout: publicProcedure.mutation(({ ctx }) => { const cookieOptions = getSessionCookieOptions(ctx.req); ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 }); return { success: true } as const; }),
+    /** Prototype-only sign-in with the fixed demo accounts documented in the README. */
+    demoLogin: publicProcedure
+      .input(z.object({ employeeId: z.string().trim().min(1).max(40), password: z.string().min(1).max(100) }))
+      .mutation(async ({ input, ctx }) => {
+        const key = input.employeeId.toUpperCase();
+        const account = DEMO_ACCOUNTS[key];
+        if (!account || account.password !== input.password) {
+          throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid ID or password" });
+        }
+        const openId = `demo:${key}`;
+        await upsertUser({ openId, name: account.name, email: `${key.toLowerCase()}@demo.local`, loginMethod: "demo", role: account.role, lastSignedIn: new Date() });
+        const token = await sdk.createSessionToken(openId, { name: account.name, expiresInMs: ONE_YEAR_MS });
+        ctx.res.cookie(COOKIE_NAME, token, { ...getSessionCookieOptions(ctx.req), maxAge: ONE_YEAR_MS });
+        await recordAudit("LOGIN_SESSION_OBSERVED", "user", openId, undefined, { method: "demo", role: account.role });
+        return { success: true, role: account.role } as const;
+      }),
+  }),
   admin: router({ users: adminProcedure.query(() => listUsers()), updateUserRole: adminProcedure.input(z.object({ id: z.number().int().positive(), role: z.enum(["user", "admin", "qa", "scientist"]) })).mutation(async ({ input, ctx }) => { const updated = await updateUserRole(input.id, input.role); if (!updated) throw new TRPCError({ code: "NOT_FOUND", message: "User not found" }); await recordAudit("USER_ROLE_UPDATED", "user", String(input.id), ctx.user.id, { role: input.role }); return updated; }) }),
   ingestion: router({
     validate: scientistProcedure.input(z.object({ csv: z.string().min(1).max(50000000), filename: z.string().max(200).optional() })).mutation(async ({ input, ctx }) => { const report = validateCsv(input.csv); await recordAudit("DATASET_VALIDATED", "dataset", input.filename ?? "inline-csv", ctx.user.id, { valid: report.valid, rowCount: report.rowCount, errorCount: report.errors.length }); return report; }),
