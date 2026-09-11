@@ -6,7 +6,7 @@ VanGaurd ESS is a reliability investigation platform for component burn-in scree
 
 ## Implemented workflow
 
-The primary workflow is **Observe → Validate → Compare → Detect → Predict → Quantify uncertainty → Explain → Suggest action → Human QA decision → Audit**. The seeded lot `LOT-2026-041` is explicitly labelled **Synthetic / Demonstration Data** and includes normal, latent-risk, accelerating-drift, obvious-failure, noisy, common-cause, high-uncertainty, and false-positive scenarios.
+The primary workflow is **Observe → Validate → Compare → Detect → Predict → Quantify uncertainty → Explain → Suggest action → Human QA decision → Audit**. The seeded lot `LOT-2026-041` is explicitly labelled **Demonstration Data** and includes normal, latent-risk, accelerating-drift, obvious-failure, noisy, common-cause, high-uncertainty, and false-positive scenarios.
 
 ## Architecture
 
@@ -58,7 +58,7 @@ This prototype uses synthetic data and does not claim ISRO production training, 
 
 The landing route resolves by role: an **Admin dashboard** (system health, lot health, users-by-role, audit trail), a **QA dashboard** (an "awaiting your decision" queue with review deep-links, recent decisions), and for everyone else the **Reliability workbench**. The workbench screens one component through four labelled sections in order — **1 Anomaly detection · 2 Drift prediction · 3 Risk management · 4 Pass/fail explanation** — with the CSV import and audit feed as a secondary row. **Investigation queue** lists persisted investigations and common-cause signals with a print action. **Configuration** persists per-lot specification limit and safety boundary (feeding the engine directly, clearing cached scores), shows the fixed model bands, and lists registered models with real holdout metrics; editing is admin-only.
 
-The primary judge flow remains **Observe → Validate → Compare → Detect → Predict → Quantify uncertainty → Explain → Suggested Screening Action → Human QA Decision → Audit**. Analytical outputs are computed from the persisted synthetic demonstration dataset and are not prerecorded. Synthetic data is labelled `Synthetic / Demonstration Data`.
+The primary judge flow remains **Observe → Validate → Compare → Detect → Predict → Quantify uncertainty → Explain → Suggested Screening Action → Human QA Decision → Audit**. Analytical outputs are computed from the persisted synthetic demonstration dataset and are not prerecorded. Synthetic data is labelled `Demonstration Data`.
 
 ## Visual system — GovSetu
 

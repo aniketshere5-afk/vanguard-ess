@@ -151,7 +151,7 @@ export default function ReliabilityWorkbench() {
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">Anomaly, drift, risk and the pass/fail reasoning for a single unit — in that order.</p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge variant="outline" className="border-border bg-muted text-foreground"><Database className="mr-1.5 h-3.5 w-3.5" />Synthetic / Demonstration Data</Badge>
+          <Badge variant="outline" className="border-border bg-muted text-foreground"><Database className="mr-1.5 h-3.5 w-3.5" />Demonstration Data</Badge>
           <Button variant="outline" size="sm" disabled={!selectedId || runAnalysis.isPending} onClick={() => runAnalysis.mutate({ componentId: selectedId! })}>
             <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${runAnalysis.isPending ? "animate-spin" : ""}`} />Re-run analysis
           </Button>

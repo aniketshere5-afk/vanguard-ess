@@ -221,7 +221,7 @@ export function computeReliability(points: Point[], peerInitialValues: number[],
 export function generateSyntheticDemo() {
   const scenarios = ["Normal", "Static PASS / Dynamic Anomaly", "Accelerating Drift", "Obvious Failure", "Noisy Component", "Common-Cause Shift", "High Uncertainty", "False Positive Candidate"];
   const peer = [9.8, 10.1, 10.3, 10.4, 10.6, 10.7, 10.9, 10.2, 10.5, 10.0, 10.8, 10.3];
-  return { lotCode: "LOT-2026-041", deviceFamily: "VGA-18 / Power Regulation", dataLabel: "Synthetic / Demonstration Data", specificationMax: 50, safetyBoundary: 42, peer, scenarios, primary: { componentCode: "CMP-LATENT-017", scenario: "Static PASS / Dynamic Anomaly", points: [{ checkpointHours: 0, value: 44.8 }, { checkpointHours: 24, value: 48.6 }] as Point[] } };
+  return { lotCode: "LOT-2026-041", deviceFamily: "VGA-18 / Power Regulation", dataLabel: "Demonstration Data", specificationMax: 50, safetyBoundary: 42, peer, scenarios, primary: { componentCode: "CMP-LATENT-017", scenario: "Static PASS / Dynamic Anomaly", points: [{ checkpointHours: 0, value: 44.8 }, { checkpointHours: 24, value: 48.6 }] as Point[] } };
 }
 
 export function validateCsv(csv: string) {
