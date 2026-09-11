@@ -11,11 +11,11 @@ export default function GovSetuMark({ className = "h-10 w-10" }: { className?: s
   return (
     <svg viewBox="0 0 48 48" className={className} role="img" aria-label="VanGuard ESS mark" fill="none">
       {/* seal boundary, matches the Mission Assurance badge's ring language */}
-      <circle cx="24" cy="24" r="22" stroke="currentColor" strokeWidth="1.2" opacity="0.35" />
+      <circle cx="24" cy="24" r="22" stroke="currentColor" strokeWidth="1.6" opacity="0.6" />
       {/* orbital ring */}
-      <ellipse cx="24" cy="24" rx="17.5" ry="10.5" stroke="currentColor" strokeWidth="1.5" opacity="0.6" transform="rotate(-18 24 24)" />
+      <ellipse cx="24" cy="24" rx="17.5" ry="10.5" stroke="currentColor" strokeWidth="1.8" opacity="0.8" transform="rotate(-18 24 24)" />
       {/* navigation star at center */}
-      <path d="M24 14.5 L25.9 22.1 L33.5 24 L25.9 25.9 L24 33.5 L22.1 25.9 L14.5 24 L22.1 22.1 Z" fill="currentColor" />
+      <path d="M24 14.5 L25.9 22.1 L33.5 24 L25.9 25.9 L24 33.5 L22.1 25.9 L14.5 24 L22.1 22.1 Z" fill="var(--gov-saffron)" />
       {/* satellite riding the orbit */}
       <g transform="rotate(-18 24 24) translate(41.5 24)">
         <rect x="-2.4" y="-1.5" width="4.8" height="3" rx="0.6" fill="var(--gov-saffron)" />

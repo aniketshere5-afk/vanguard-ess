@@ -37,7 +37,7 @@ export function GovMasthead() {
       <div style={{ background: "var(--gov-navy)" }} className="text-white">
         <div className="mx-auto flex min-h-[76px] max-w-[1600px] items-center gap-3 px-4 py-2">
           <div className="flex shrink-0 items-center gap-2.5">
-            <GovSetuMark className="h-10 w-10 text-white" />
+            <GovSetuMark className="h-12 w-12 text-white" />
             <div className="hidden leading-tight sm:block">
               <p className="font-serif text-base font-bold tracking-tight">VANGUARD ESS</p>
               <p className="text-[10px] uppercase tracking-[0.14em] text-white/70">Aerospace Reliability Intelligence</p>
@@ -48,7 +48,7 @@ export function GovMasthead() {
             <p className="text-xs font-medium leading-tight text-white/85 sm:text-sm">Indian Space Mission &amp; Reliability Analytics</p>
             <p className="mt-0.5 hidden text-[10px] text-white/55 sm:block">Hackathon prototype · VanGuard ESS · not affiliated with ISRO or the Government of India</p>
           </div>
-          <MissionAssuranceBadge className="h-10 w-10 shrink-0 text-white" />
+          <MissionAssuranceBadge className="h-12 w-12 shrink-0 text-white" />
         </div>
       </div>
       <div className="tricolour-rule" />

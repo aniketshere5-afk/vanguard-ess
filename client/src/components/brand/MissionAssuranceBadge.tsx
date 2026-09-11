@@ -12,28 +12,28 @@ export default function MissionAssuranceBadge({ className = "h-10 w-10" }: { cla
   return (
     <svg viewBox="0 0 48 48" className={className} role="img" aria-label="VanGuard ESS Mission Assurance seal" fill="none">
       {/* outer rim */}
-      <circle cx="24" cy="24" r="22.5" stroke="currentColor" strokeWidth="1" opacity="0.4" />
+      <circle cx="24" cy="24" r="22.5" stroke="currentColor" strokeWidth="1.4" opacity="0.7" />
       {/* radial tick marks, evenly spaced — a generic "official seal" device */}
       {ticks.map(deg => (
         <line
           key={deg}
-          x1={24 + 20.5 * Math.cos((deg * Math.PI) / 180)}
-          y1={24 + 20.5 * Math.sin((deg * Math.PI) / 180)}
+          x1={24 + 20 * Math.cos((deg * Math.PI) / 180)}
+          y1={24 + 20 * Math.sin((deg * Math.PI) / 180)}
           x2={24 + 22 * Math.cos((deg * Math.PI) / 180)}
           y2={24 + 22 * Math.sin((deg * Math.PI) / 180)}
           stroke="currentColor"
-          strokeWidth="0.8"
-          opacity="0.5"
+          strokeWidth="1.1"
+          opacity="0.75"
         />
       ))}
       {/* tricolour dashed band */}
-      <circle cx="24" cy="24" r="19" fill="none" stroke="var(--gov-saffron)" strokeWidth="1.6" strokeDasharray="2 2.6" />
-      <circle cx="24" cy="24" r="16.5" fill="none" stroke="var(--gov-green)" strokeWidth="1.6" strokeDasharray="2 2.6" strokeDashoffset="2" />
+      <circle cx="24" cy="24" r="19" fill="none" stroke="var(--gov-saffron)" strokeWidth="2" strokeDasharray="2.4 2.6" />
+      <circle cx="24" cy="24" r="16.5" fill="none" stroke="var(--gov-green)" strokeWidth="2" strokeDasharray="2.4 2.6" strokeDashoffset="2" />
       {/* solid seal face, generous padding to the rings above */}
-      <circle cx="24" cy="24" r="13.5" fill="var(--card)" stroke="currentColor" strokeWidth="1.2" />
-      <ellipse cx="24" cy="24" rx="9.5" ry="5" stroke="currentColor" strokeWidth="0.9" opacity="0.5" />
-      {/* eight-point navigation star, matched to the GovSetu mark */}
-      <path d="M24 17 L25.5 22.5 L31 24 L25.5 25.5 L24 31 L22.5 25.5 L17 24 L22.5 22.5 Z" fill="currentColor" />
+      <circle cx="24" cy="24" r="13.5" fill="var(--card)" stroke="currentColor" strokeWidth="1.6" />
+      <ellipse cx="24" cy="24" rx="9.5" ry="5" stroke="currentColor" strokeWidth="1.1" opacity="0.65" />
+      {/* eight-point navigation star, matched to the VanGuard mark */}
+      <path d="M24 16.5 L25.7 22.3 L31.5 24 L25.7 25.7 L24 31.5 L22.3 25.7 L16.5 24 L22.3 22.3 Z" fill="var(--primary)" />
     </svg>
   );
 }
