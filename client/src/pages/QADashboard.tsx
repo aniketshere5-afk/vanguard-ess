@@ -1,45 +1,49 @@
 import DashboardLayout from "@/components/DashboardLayout";
-import DemoRoleSwitch from "@/components/DemoRoleSwitch";
+import OrbitalLoader from "@/components/OrbitalLoader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { getDemoRole, isDemoPreview } from "@/const";
 import { trpc } from "@/lib/trpc";
-import { AlertTriangle, CheckCircle2, ClipboardList, RefreshCw, ShieldAlert } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ClipboardCheck, ClipboardList, FileWarning, ShieldAlert } from "lucide-react";
 import { useMemo } from "react";
 import { useLocation } from "wouter";
 
+type ValidationMeta = { valid?: boolean; rowCount?: number; errorCount?: number; format?: string; componentsCreated?: number; measurementsInserted?: number };
+
 export default function QADashboard() {
   const { user } = useAuth();
-  const demoPreview = !user && isDemoPreview();
-  const role = demoPreview ? getDemoRole() : (user?.role ?? "user");
+  const role = user?.role ?? "user";
   const [, navigate] = useLocation();
-  const canRead = Boolean(user) || demoPreview;
+  const canRead = Boolean(user);
 
   const investigations = trpc.investigations.list.useQuery(undefined, { enabled: canRead, retry: 1 });
   const components = trpc.components.list.useQuery(undefined, { enabled: canRead, retry: 1 });
   const summary = trpc.dashboard.summary.useQuery(undefined, { enabled: canRead, retry: 1 });
   const audit = trpc.audit.list.useQuery(undefined, { enabled: canRead, retry: 1 });
+  const models = trpc.models.list.useQuery(undefined, { enabled: canRead, retry: 1 });
 
   const codeById = useMemo(() => new Map((components.data ?? []).map(c => [c.id, c.componentCode])), [components.data]);
   const open = (investigations.data ?? []).filter(i => i.status === "OPEN");
   const closed = (investigations.data ?? []).filter(i => i.status === "CLOSED");
   const qaDecisions = (audit.data ?? []).filter(l => l.action === "QA_DECISION_RECORDED").slice(0, 8);
+  const validationEvents = (audit.data ?? []).filter(l => l.action === "DATASET_VALIDATED" || l.action === "DATASET_IMPORTED");
+  const failedValidations = validationEvents.filter(l => (l.metadataJson as ValidationMeta)?.valid === false || ((l.metadataJson as ValidationMeta)?.errorCount ?? 0) > 0).length;
+  const model = models.data?.[0];
 
   const tiles = [
     { label: "Awaiting your decision", value: open.length, icon: ClipboardList },
     { label: "Decisions recorded", value: closed.length, icon: CheckCircle2 },
     { label: "High-risk components", value: summary.data?.highRisk, icon: ShieldAlert },
-    { label: "Critical", value: summary.data?.critical, icon: AlertTriangle },
+    { label: "Datasets with warnings", value: failedValidations, icon: FileWarning },
   ];
 
   if (investigations.isLoading || components.isLoading) {
-    return <DashboardLayout><div className="min-h-[60vh] grid place-items-center"><RefreshCw className="animate-spin text-muted-foreground" /></div></DashboardLayout>;
+    return <DashboardLayout><OrbitalLoader label="Loading validation queue…" /></DashboardLayout>;
   }
 
   if (role !== "qa" && role !== "admin") return <DashboardLayout><div className="blueprint-panel m-4 max-w-md p-8">
-    <ShieldAlert className="mb-3 text-amber-600 dark:text-amber-300" />
+    <ShieldAlert className="mb-3 text-amber-600" />
     <h1 className="text-lg font-semibold">QA Engineer access required</h1>
     <p className="mt-2 text-sm text-muted-foreground">This dashboard is limited to the QA Engineer and Admin roles.</p>
     <Button className="mt-4" onClick={() => navigate("/reliability")}>Go to the workbench</Button>
@@ -47,12 +51,10 @@ export default function QADashboard() {
 
   return <DashboardLayout>
     <div className="container space-y-5 pb-12">
-      {demoPreview && <DemoRoleSwitch role={role} />}
-
       <header>
-        <p className="blueprint-label text-primary">QA ENGINEER · DECISION REVIEW</p>
+        <p className="blueprint-label text-primary">QA ENGINEER · DECISION &amp; DATA QUALITY REVIEW</p>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight md:text-3xl">QA dashboard</h1>
-        <p className="mt-1 max-w-2xl text-sm text-muted-foreground">Review flagged components, weigh the evidence, and record the final screening decision.</p>
+        <p className="mt-1 max-w-2xl text-sm text-muted-foreground">Review flagged components, verify dataset quality, and record the final screening decision.</p>
       </header>
 
       <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
@@ -82,6 +84,38 @@ export default function QADashboard() {
 
       <div className="grid gap-5 lg:grid-cols-2">
         <Card className="blueprint-panel">
+          <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-sm"><ClipboardCheck className="h-4 w-4 text-primary" />Dataset validation activity</CardTitle></CardHeader>
+          <CardContent className="space-y-2">
+            {validationEvents.length ? validationEvents.slice(0, 8).map(log => {
+              const meta = log.metadataJson as ValidationMeta;
+              const failed = meta?.valid === false || (meta?.errorCount ?? 0) > 0;
+              return (
+                <div key={log.id} className="flex items-start justify-between gap-3 border-b border-border pb-2 text-xs last:border-0">
+                  <div>
+                    <p className="font-medium">{log.action.replaceAll("_", " ")} · <span className={failed ? "text-amber-600" : "text-emerald-700"}>{failed ? "warnings" : "clean"}</span></p>
+                    <p className="text-muted-foreground">{log.targetId} {meta?.rowCount != null ? `· ${meta.rowCount} rows` : ""} {meta?.errorCount ? `· ${meta.errorCount} error(s)` : ""}</p>
+                  </div>
+                  <span className="shrink-0 font-mono text-[10px] text-muted-foreground">{log.createdAt ? new Date(log.createdAt).toLocaleTimeString() : "—"}</span>
+                </div>
+              );
+            }) : <p className="text-xs text-muted-foreground">No CSV validations or imports yet.</p>}
+          </CardContent>
+        </Card>
+
+        <Card className="blueprint-panel">
+          <CardHeader className="pb-3"><CardTitle className="text-sm">Model validation</CardTitle></CardHeader>
+          <CardContent className="space-y-2 text-xs">
+            {model ? <>
+              <div className="flex justify-between"><span className="text-muted-foreground">Registered model</span><span className="font-mono">{model.version}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Validation method</span><span>{(model.metricsJson as { validation?: string })?.validation ?? "—"}</span></div>
+            </> : <p className="text-muted-foreground">No model registered yet.</p>}
+            <p className="pt-1 text-[11px] text-muted-foreground">Backend + database connectivity checks live on the Admin dashboard.</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        <Card className="blueprint-panel">
           <CardHeader className="pb-3"><CardTitle className="text-sm">Recent QA decisions</CardTitle></CardHeader>
           <CardContent className="space-y-2">
             {qaDecisions.length ? qaDecisions.map(log => (
@@ -99,7 +133,7 @@ export default function QADashboard() {
             {(summary.data?.lotHealth ?? []).map(lot => (
               <div key={lot.id} className="flex items-center justify-between rounded border border-border p-3 text-xs">
                 <span className="font-mono">{lot.lotCode}</span>
-                <span className="flex gap-3 font-mono"><span>avg {lot.avgRisk}</span><Badge variant="outline" className={lot.anomalyCount ? "border-amber-500/40 text-amber-600 dark:text-amber-300" : "border-border"}>{lot.anomalyCount} anom</Badge></span>
+                <span className="flex gap-3 font-mono"><span>avg {lot.avgRisk}</span><Badge variant="outline" className={lot.anomalyCount ? "border-amber-500/40 text-amber-600" : "border-border"}>{lot.anomalyCount} anom</Badge></span>
               </div>
             ))}
             {!summary.data?.lotHealth?.length && <p className="text-xs text-muted-foreground">No lots yet.</p>}

@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { CheckCircle2, GitBranch, LockKeyhole, Settings2, SlidersHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
-import DemoRoleSwitch from "@/components/DemoRoleSwitch";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +9,6 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { getDemoRole, isDemoPreview } from "@/const";
 
 const RISK_BANDS = [
   { band: "NORMAL", range: "0 – 20", tone: "text-emerald-600 dark:text-emerald-300" },
@@ -28,10 +26,9 @@ const ACTIONS = [
 
 export default function Configuration() {
   const { user } = useAuth();
-  const demoPreview = !user && isDemoPreview();
-  const role = demoPreview ? getDemoRole() : (user?.role ?? "user");
-  const isAdmin = role === "admin" && !demoPreview;
-  const canRead = Boolean(user) || demoPreview;
+  const role = user?.role ?? "user";
+  const isAdmin = role === "admin";
+  const canRead = Boolean(user);
 
   const lots = trpc.lots.list.useQuery(undefined, { enabled: canRead, retry: 1 });
   const models = trpc.models.list.useQuery(undefined, { enabled: canRead, retry: 1 });
@@ -67,8 +64,6 @@ export default function Configuration() {
 
   return <DashboardLayout>
     <div className="container space-y-5 pb-12">
-      {demoPreview && <DemoRoleSwitch role={role} />}
-
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="blueprint-label text-primary">CONFIGURATION · CONTROL PLANE</p>

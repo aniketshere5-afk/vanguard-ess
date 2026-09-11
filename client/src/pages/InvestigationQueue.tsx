@@ -5,12 +5,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { trpc } from "@/lib/trpc";
-import { isDemoPreview } from "@/const";
 import { useAuth } from "@/_core/hooks/useAuth";
 
 export default function InvestigationQueue() {
   const { user } = useAuth();
-  const canRead = Boolean(user) || isDemoPreview();
+  const canRead = Boolean(user);
   const investigations = trpc.investigations.list.useQuery(undefined, { enabled: canRead, retry: 1 });
   const components = trpc.components.list.useQuery(undefined, { enabled: canRead, retry: 1 });
   const summary = trpc.dashboard.summary.useQuery(undefined, { enabled: canRead, retry: 1 });

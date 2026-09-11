@@ -1,5 +1,6 @@
 import DashboardLayout from "@/components/DashboardLayout";
-import DemoRoleSwitch from "@/components/DemoRoleSwitch";
+import OrbitalLoader from "@/components/OrbitalLoader";
+import PipelineStrip from "@/components/PipelineStrip";
 import PassFailExplanation from "@/components/PassFailExplanation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,7 +9,6 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { getDemoRole, isDemoPreview } from "@/const";
 import { trpc } from "@/lib/trpc";
 import { AlertTriangle, CheckCircle2, Database, FileWarning, GaugeCircle, LineChart, RefreshCw, ScanSearch, Upload } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -44,10 +44,9 @@ function Section({ n, title, blurb, icon: Icon, children }: { n: number; title: 
 
 export default function ReliabilityWorkbench() {
   const { user } = useAuth();
-  const demoPreview = !user && isDemoPreview();
-  const role = demoPreview ? getDemoRole() : (user?.role ?? "user");
-  const canRead = Boolean(user) || demoPreview;
-  const canDecide = !demoPreview && (role === "qa" || role === "admin");
+  const role = user?.role ?? "user";
+  const canRead = Boolean(user);
+  const canDecide = role === "qa" || role === "admin";
   const utils = trpc.useUtils();
 
   const lots = trpc.lots.list.useQuery(undefined, { enabled: canRead, retry: 1 });
@@ -132,7 +131,7 @@ export default function ReliabilityWorkbench() {
   const chartData = (detail.data?.measurements ?? []).map(m => ({ time: `${m.checkpointHours}h`, value: Number(m.leakageCurrent) }));
 
   if (lots.isLoading || components.isLoading) {
-    return <DashboardLayout><div className="min-h-[60vh] grid place-items-center"><RefreshCw className="animate-spin text-muted-foreground" /></div></DashboardLayout>;
+    return <DashboardLayout><OrbitalLoader label="Processing telemetry…" /></DashboardLayout>;
   }
   if (lots.error || components.error) {
     return <DashboardLayout><div className="blueprint-panel m-4 max-w-xl p-8">
@@ -145,8 +144,6 @@ export default function ReliabilityWorkbench() {
 
   return <DashboardLayout>
     <div className="container space-y-5 pb-12">
-      {demoPreview && <DemoRoleSwitch role={role} />}
-
       <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="blueprint-label text-primary">RELIABILITY WORKBENCH</p>
@@ -155,11 +152,13 @@ export default function ReliabilityWorkbench() {
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="border-border bg-muted text-foreground"><Database className="mr-1.5 h-3.5 w-3.5" />Synthetic / Demonstration Data</Badge>
-          <Button variant="outline" size="sm" disabled={!selectedId || runAnalysis.isPending || demoPreview} onClick={() => runAnalysis.mutate({ componentId: selectedId! })}>
-            <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${runAnalysis.isPending ? "animate-spin" : ""}`} />{demoPreview ? "Read-only" : "Re-run analysis"}
+          <Button variant="outline" size="sm" disabled={!selectedId || runAnalysis.isPending} onClick={() => runAnalysis.mutate({ componentId: selectedId! })}>
+            <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${runAnalysis.isPending ? "animate-spin" : ""}`} />Re-run analysis
           </Button>
         </div>
       </header>
+
+      <PipelineStrip />
 
       {/* Picker */}
       <Card className="blueprint-panel">
@@ -190,7 +189,7 @@ export default function ReliabilityWorkbench() {
       </Card>
 
       {!analysis || detail.isLoading ? (
-        <Card className="blueprint-panel grid min-h-[320px] place-items-center"><RefreshCw className="animate-spin text-muted-foreground" /></Card>
+        <Card className="blueprint-panel grid min-h-[320px] place-items-center"><OrbitalLoader label="Running reliability model…" compact /></Card>
       ) : (
         <>
           {/* Headline */}
@@ -276,7 +275,7 @@ export default function ReliabilityWorkbench() {
                 {openInv
                   ? <p className="mt-1 text-xs text-emerald-600 dark:text-emerald-300">Open · INV-{String(openInv.id).padStart(4, "0")}</p>
                   : <p className="mt-1 text-xs text-muted-foreground">None open for this component.</p>}
-                <Button className="mt-2" size="sm" disabled={openInvestigation.isPending || demoPreview || !!openInv}
+                <Button className="mt-2" size="sm" disabled={openInvestigation.isPending || !!openInv}
                   onClick={() => openInvestigation.mutate({ componentId: selectedId! })}>
                   {openInvestigation.isPending ? "Opening…" : openInv ? "Investigation open" : "Open investigation"}
                 </Button>
@@ -327,7 +326,7 @@ export default function ReliabilityWorkbench() {
             <p className="text-xs leading-relaxed text-muted-foreground">Upload a CSV to validate and import as a new lot. The native checkpoint format and the ESS telemetry export are both accepted; problematic rows are reported, never silently imported.</p>
             <label className={`mt-3 flex items-center justify-center gap-2 rounded border border-dashed border-border bg-background px-3 py-3 text-xs hover:bg-accent ${validateMut.isPending ? "pointer-events-none opacity-60" : ""}`}>
               <Upload className="h-4 w-4" />{validateMut.isPending ? "Validating…" : "Choose CSV"}
-              <input className="sr-only" type="file" accept=".csv,text/csv" disabled={validateMut.isPending || demoPreview} onChange={e => { const f = e.target.files?.[0]; if (f) void onPickCsv(f); }} />
+              <input className="sr-only" type="file" accept=".csv,text/csv" disabled={validateMut.isPending} onChange={e => { const f = e.target.files?.[0]; if (f) void onPickCsv(f); }} />
             </label>
             {report && <div className="mt-3 space-y-2 text-[11px]">
               <p className={report.valid ? "text-emerald-600 dark:text-emerald-300" : "text-amber-600 dark:text-amber-300"}>{report.valid ? `Valid · ${report.rowCount.toLocaleString()} rows` : "Validation issues found"}</p>
@@ -339,7 +338,7 @@ export default function ReliabilityWorkbench() {
                 <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Spec max (µA)<Input type="number" min="0.01" step="0.01" value={specMax} onChange={e => setSpecMax(Number(e.target.value))} className="mt-1 h-8 bg-background" /></label>
                 <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Safety boundary (µA)<Input type="number" min="0.01" step="0.01" value={boundary} onChange={e => setBoundary(Number(e.target.value))} className="mt-1 h-8 bg-background" /></label>
               </div>
-              <Button size="sm" className="w-full" disabled={importMut.isPending || demoPreview}
+              <Button size="sm" className="w-full" disabled={importMut.isPending}
                 onClick={() => importMut.mutate({ csv: pendingCsv.text, filename: pendingCsv.filename, specificationMax: specMax, safetyBoundary: boundary })}>
                 {importMut.isPending ? "Importing…" : "Import dataset"}
               </Button>

@@ -1,5 +1,4 @@
 import { useAuth } from "@/_core/hooks/useAuth";
-import { getDemoRole, isDemoPreview } from "@/const";
 import AdminDashboard from "@/pages/AdminDashboard";
 import QADashboard from "@/pages/QADashboard";
 import ReliabilityWorkbench from "@/pages/ReliabilityWorkbench";
@@ -12,8 +11,7 @@ import ReliabilityWorkbench from "@/pages/ReliabilityWorkbench";
  */
 export default function Home() {
   const { user } = useAuth();
-  const demoPreview = !user && isDemoPreview();
-  const role = demoPreview ? getDemoRole() : (user?.role ?? "user");
+  const role = user?.role ?? "user";
 
   if (role === "admin") return <AdminDashboard />;
   if (role === "qa") return <QADashboard />;
