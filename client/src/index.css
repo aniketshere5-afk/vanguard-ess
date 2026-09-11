@@ -75,41 +75,9 @@
   --font-serif: "Noto Serif", "Noto Serif Devanagari", Georgia, "Times New Roman", serif;
 }
 
-.dark {
-  color-scheme: dark;
-  /* "Night operations" navy — still institutional, not a slate SaaS theme. */
-  --background: #071426;
-  --foreground: #eaf0f7;
-  --card: #0d2038;
-  --card-foreground: #eaf0f7;
-  --popover: #0d2038;
-  --popover-foreground: #eaf0f7;
-  --primary: #6aa6e0;
-  --primary-foreground: #071426;
-  --secondary: #122b48;
-  --secondary-foreground: #d6e4f5;
-  --muted: #10263f;
-  --muted-foreground: #93a6bd;
-  --accent: #143257;
-  --accent-foreground: #e6eefb;
-  --destructive: #e5675f;
-  --destructive-foreground: #1a0f0e;
-  --border: #23405f;
-  --input: #2c4a6b;
-  --ring: #6aa6e0;
-  --sidebar: #05101f;
-  --sidebar-foreground: #dbe7f5;
-  --sidebar-primary: #ffffff;
-  --sidebar-primary-foreground: #05101f;
-  --sidebar-accent: #0f2744;
-  --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: #1c3a5c;
-  --sidebar-ring: #6aa6e0;
-
-  --gov-saffron: #ffa94d;
-  --gov-green: #3bab2f;
-  --gov-navy: #0b2a52;
-}
+/* GovSetu is light-theme only by design (institutional daylight console, not
+   a switchable SaaS dark mode) — there is intentionally no .dark override
+   block and no theme toggle in the UI. */
 
 @layer base {
   * { @apply border-border outline-ring/50; }
@@ -138,11 +106,20 @@
   .gov-utility { background: var(--gov-navy); color: #cdd9ea; }
   .gov-masthead { background: var(--card); border-bottom: 1px solid var(--border); }
   .gov-emblem { color: var(--primary); }
+
+  /* Subtle orbital-arc watermark for hero/section backgrounds. Purely
+     decorative, low-opacity, never placed behind text without a solid panel. */
+  .orbit-field {
+    background-image:
+      radial-gradient(circle at 6% 0%, color-mix(in srgb, var(--primary) 6%, transparent), transparent 40%),
+      repeating-radial-gradient(circle at 100% 0%, transparent 0 38px, color-mix(in srgb, var(--primary) 5%, transparent) 39px 40px);
+  }
 }
 
-/* The shadcn sidebar pins itself to the viewport; drop it below the masthead
-   (utility 24px + identity 64px + tricolour 3px = 91px). */
-:root { --gov-mast: 91px; }
+/* The shadcn sidebar pins itself to the viewport; --gov-mast is measured at
+   runtime by GovMasthead (ResizeObserver) so it tracks the header's real
+   height at every viewport width. This is just the pre-JS fallback. */
+:root { --gov-mast: 100px; }
 [data-slot="sidebar-container"],
 [data-slot="sidebar-rail"] {
   top: var(--gov-mast) !important;
