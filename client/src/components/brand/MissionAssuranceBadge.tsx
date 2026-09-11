@@ -10,7 +10,7 @@
 export default function MissionAssuranceBadge({ className = "h-10 w-10" }: { className?: string }) {
   const ticks = Array.from({ length: 16 }, (_, i) => (i * 360) / 16);
   return (
-    <svg viewBox="0 0 48 48" className={className} role="img" aria-label="GovSetu Mission Assurance seal" fill="none">
+    <svg viewBox="0 0 48 48" className={className} role="img" aria-label="VanGuard ESS Mission Assurance seal" fill="none">
       {/* outer rim */}
       <circle cx="24" cy="24" r="22.5" stroke="currentColor" strokeWidth="1" opacity="0.4" />
       {/* radial tick marks, evenly spaced — a generic "official seal" device */}

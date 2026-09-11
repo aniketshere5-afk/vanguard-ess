@@ -94,7 +94,7 @@ export default function DashboardLayout({
               <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">Turn early signals into defensible reliability decisions.</h1>
               <p className="mt-4 max-w-lg text-sm leading-7 text-muted-foreground">Anomaly detection, drift prediction, risk scoring and human QA decisions in one traceable mission-control console.</p>
               <div className="mt-6 grid gap-2 sm:grid-cols-3">{["Evidence-first", "Role-aware", "Audit-ready"].map(label => <div key={label} className="border border-border bg-card px-3 py-2.5 text-xs text-muted-foreground"><CheckCircle2 className="mb-1.5 h-4 w-4 text-primary" />{label}</div>)}</div>
-              <p className="mt-6 max-w-lg text-xs leading-relaxed text-muted-foreground">This is a Smart India Hackathon prototype with an original GovSetu identity. It is not affiliated with, endorsed by, or a system of ISRO or the Government of India.</p>
+              <p className="mt-6 max-w-lg text-xs leading-relaxed text-muted-foreground">This is a Smart India Hackathon prototype built under the VanGuard ESS name. It is not affiliated with, endorsed by, or a system of ISRO or the Government of India.</p>
             </div>
             <div className="border border-border bg-card p-6 sm:p-7">
               <div className="flex items-start justify-between gap-4">
@@ -289,7 +289,7 @@ function DashboardLayoutContent({
           <div className="flex min-w-0 items-center gap-2">
             {isMobile && <SidebarTrigger className="h-9 w-9 rounded-lg bg-background" />}
             <span className="truncate text-sm font-medium tracking-tight text-foreground">
-              {activeMenuItem?.label ?? "GovSetu"}
+              {activeMenuItem?.label ?? "VanGuard ESS"}
             </span>
           </div>
           <DropdownMenu>
@@ -322,7 +322,7 @@ function DashboardLayoutContent({
         </header>
         <AlertDialog open={logoutOpen} onOpenChange={setLogoutOpen}>
           <AlertDialogContent>
-            <AlertDialogHeader><AlertDialogTitle>Log out of GovSetu?</AlertDialogTitle><AlertDialogDescription>Your active session will be ended on this device. You can sign in again at any time.</AlertDialogDescription></AlertDialogHeader>
+            <AlertDialogHeader><AlertDialogTitle>Log out of VanGuard ESS?</AlertDialogTitle><AlertDialogDescription>Your active session will be ended on this device. You can sign in again at any time.</AlertDialogDescription></AlertDialogHeader>
             <AlertDialogFooter><AlertDialogCancel>Keep me signed in</AlertDialogCancel><AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => void logout().catch(() => undefined)}>Log out</AlertDialogAction></AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>

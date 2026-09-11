@@ -39,14 +39,14 @@ export function GovMasthead() {
           <div className="flex shrink-0 items-center gap-2.5">
             <GovSetuMark className="h-10 w-10 text-white" />
             <div className="hidden leading-tight sm:block">
-              <p className="font-serif text-base font-bold tracking-tight">GOVSETU</p>
+              <p className="font-serif text-base font-bold tracking-tight">VANGUARD ESS</p>
               <p className="text-[10px] uppercase tracking-[0.14em] text-white/70">Aerospace Reliability Intelligence</p>
             </div>
           </div>
           <div className="min-w-0 flex-1 text-center">
             <p className="font-serif text-[15px] font-semibold leading-tight sm:text-lg">भारतीय अंतरिक्ष मिशन एवं विश्वसनीयता विश्लेषण</p>
             <p className="text-xs font-medium leading-tight text-white/85 sm:text-sm">Indian Space Mission &amp; Reliability Analytics</p>
-            <p className="mt-0.5 hidden text-[10px] text-white/55 sm:block">Hackathon prototype · original GovSetu identity · not affiliated with ISRO or the Government of India</p>
+            <p className="mt-0.5 hidden text-[10px] text-white/55 sm:block">Hackathon prototype · VanGuard ESS · not affiliated with ISRO or the Government of India</p>
           </div>
           <MissionAssuranceBadge className="h-10 w-10 shrink-0 text-white" />
         </div>

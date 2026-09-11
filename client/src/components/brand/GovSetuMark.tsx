@@ -9,7 +9,7 @@
  */
 export default function GovSetuMark({ className = "h-10 w-10" }: { className?: string }) {
   return (
-    <svg viewBox="0 0 48 48" className={className} role="img" aria-label="GovSetu mark" fill="none">
+    <svg viewBox="0 0 48 48" className={className} role="img" aria-label="VanGuard ESS mark" fill="none">
       {/* seal boundary, matches the Mission Assurance badge's ring language */}
       <circle cx="24" cy="24" r="22" stroke="currentColor" strokeWidth="1.2" opacity="0.35" />
       {/* orbital ring */}

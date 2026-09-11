@@ -1,7 +1,7 @@
 # Brand and disclaimers
 
-This is a Smart India Hackathon prototype, independently built, under an
-original identity: **GovSetu**. It is not affiliated with, endorsed by, or a
+This is a Smart India Hackathon prototype, independently built under the
+project name **VanGuard ESS**. It is not affiliated with, endorsed by, or a
 system of ISRO or the Government of India.
 
 ## Why the visual language, but not the real insignia
@@ -27,12 +27,14 @@ What it does **not** do, on purpose:
 
 ## What it uses instead
 
-- **GovSetu** as an original product identity: an abstract orbit-and-star
-  mark (`client/src/components/brand/GovSetuMark.tsx`) and an abstract
-  "Mission Assurance" badge (`client/src/components/brand/
-  MissionAssuranceBadge.tsx`) — a tricolour-ringed circular graphic with a
-  star/compass motif, occupying the position an official emblem would take
-  in a government masthead, but not resembling one.
+- An original orbit-and-star product mark and a seal-style "Mission
+  Assurance" badge — a tricolour-ringed circular graphic with a star/compass
+  motif, occupying the position an official emblem would take in a
+  government masthead, but not resembling one. Both are branded as
+  **VanGuard ESS** in the UI; their component source files
+  (`client/src/components/brand/GovSetuMark.tsx` and
+  `MissionAssuranceBadge.tsx`) keep an earlier "GovSetu" working name
+  internally — that name is never rendered anywhere in the application.
 - A persistent **"Smart India Hackathon · Prototype"** strip in the header
   on every page.
 - A footer disclaimer on every page: *"Independent hackathon prototype — not

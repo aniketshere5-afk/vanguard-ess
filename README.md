@@ -60,9 +60,9 @@ The landing route resolves by role: an **Admin dashboard** (system health, lot h
 
 The primary judge flow remains **Observe → Validate → Compare → Detect → Predict → Quantify uncertainty → Explain → Suggested Screening Action → Human QA Decision → Audit**. Analytical outputs are computed from the persisted synthetic demonstration dataset and are not prerecorded. Synthetic data is labelled `Demonstration Data`.
 
-## Visual system — GovSetu
+## Visual system — VanGuard ESS
 
-The console uses an original, light-only "GovSetu" identity inspired by the visual language of Indian government / aerospace institutional sites — navy masthead, a saffron/white/green tricolour accent rule, bilingual (Hindi/English) headers, and a satellite/orbit motif — **without reproducing any official emblem, seal, or logo**. It does not use the State Emblem of India, the Ashoka Chakra, or ISRO's name/logo, and every page carries a "Smart India Hackathon · Prototype" identifier plus a footer disclaiming official status. There is no dark mode or theme toggle by design. See `docs/brand-and-disclaimers.md` for the reasoning.
+The console uses an original, light-only visual identity inspired by the visual language of Indian government / aerospace institutional sites — navy masthead, a saffron/white/green tricolour accent rule, bilingual (Hindi/English) headers, and a satellite/orbit motif — **without reproducing any official emblem, seal, or logo**. It does not use the State Emblem of India, the Ashoka Chakra, or ISRO's name/logo, and every page carries a "Smart India Hackathon · Prototype" identifier plus a footer disclaiming official status. There is no dark mode or theme toggle by design. See `docs/brand-and-disclaimers.md` for the reasoning.
 
 ## Verification status
 
