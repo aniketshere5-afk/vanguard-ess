@@ -15,12 +15,24 @@ The project uses the provided React 19 + Vite + TypeScript + Tailwind + shadcn/u
 ## Setup
 
 1. `docker compose up -d` (or `docker run … mysql:8.4`) to start the local **MySQL 8.4** database. The schema and Drizzle queries target MySQL.
-2. `cp .env.example .env` — the defaults point at that container. Set `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` for real sign-in, or use the **"Preview synthetic dataset (read-only)"** button to explore without auth.
+2. `cp .env.example .env` — the defaults point at that container. Set `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` for real sign-in, or just use a demo account (below) — no configuration needed.
 3. `pnpm install`
 4. `pnpm exec drizzle-kit migrate` to create the tables (`DATABASE_URL` must be set).
 5. `pnpm dev` — serves the app on `http://localhost:3000`. The synthetic demonstration lot seeds automatically on the first request.
 
 Run `pnpm test`, `pnpm check`, and `pnpm build` before delivery.
+
+### Demo accounts
+
+The sign-in screen offers one-click **Admin / Scientist / QA Engineer** buttons, or the same credentials can be entered manually. These are intentionally public — a prototype convenience for judges, not a security boundary — and work in every environment (including a public deployment):
+
+| Role | ID | Password |
+|---|---|---|
+| Admin | `DEMO-ADMIN` | `demo-admin` |
+| Scientist / Reliability Engineer | `DEMO-SCIENTIST` | `demo-scientist` |
+| QA Engineer | `DEMO-QA` | `demo-qa` |
+
+Real Google sign-in remains available as a secondary option on the same screen and is unaffected by the demo accounts.
 
 ### Importing your own data
 
@@ -48,9 +60,9 @@ The landing route resolves by role: an **Admin dashboard** (system health, lot h
 
 The primary judge flow remains **Observe → Validate → Compare → Detect → Predict → Quantify uncertainty → Explain → Suggested Screening Action → Human QA Decision → Audit**. Analytical outputs are computed from the persisted synthetic demonstration dataset and are not prerecorded. Synthetic data is labelled `Synthetic / Demonstration Data`.
 
-## Visual system
+## Visual system — GovSetu
 
-The console defaults to a dark reliability palette using `#0F172A` for the application background, `#1E293B` for primary surfaces, indigo interaction and focus accents, and high-contrast text. Users can persist **Light**, **Dark**, or **System default** preferences from the sidebar Appearance control. Print styling is included for investigation reports.
+The console uses an original, light-only "GovSetu" identity inspired by the visual language of Indian government / aerospace institutional sites — navy masthead, a saffron/white/green tricolour accent rule, bilingual (Hindi/English) headers, and a satellite/orbit motif — **without reproducing any official emblem, seal, or logo**. It does not use the State Emblem of India, the Ashoka Chakra, or ISRO's name/logo, and every page carries a "Smart India Hackathon · Prototype" identifier plus a footer disclaiming official status. There is no dark mode or theme toggle by design. See `docs/brand-and-disclaimers.md` for the reasoning.
 
 ## Verification status
 
