@@ -32,10 +32,10 @@ export default function QADashboard() {
   const model = models.data?.[0];
 
   const tiles = [
-    { label: "Awaiting your decision", value: open.length, icon: ClipboardList },
-    { label: "Decisions recorded", value: closed.length, icon: CheckCircle2 },
-    { label: "High-risk components", value: summary.data?.highRisk, icon: ShieldAlert },
-    { label: "Datasets with warnings", value: failedValidations, icon: FileWarning },
+    { label: "Awaiting your decision", value: open.length, icon: ClipboardList, accent: "accent-strip-saffron" },
+    { label: "Decisions recorded", value: closed.length, icon: CheckCircle2, accent: "accent-strip-green" },
+    { label: "High-risk components", value: summary.data?.highRisk, icon: ShieldAlert, accent: "accent-strip-saffron" },
+    { label: "Datasets with warnings", value: failedValidations, icon: FileWarning, accent: "border-l-[3px] border-l-destructive" },
   ];
 
   if (investigations.isLoading || components.isLoading) {
@@ -59,7 +59,7 @@ export default function QADashboard() {
 
       <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         {tiles.map(t => (
-          <Card key={t.label} className="blueprint-panel"><CardContent className="p-4">
+          <Card key={t.label} className={`blueprint-panel ${t.accent}`}><CardContent className="p-4">
             <div className="flex items-center justify-between text-muted-foreground"><span className="blueprint-label">{t.label}</span><t.icon className="h-4 w-4" /></div>
             <div className="metric-value mt-2 text-2xl font-semibold">{t.value ?? "—"}</div>
           </CardContent></Card>

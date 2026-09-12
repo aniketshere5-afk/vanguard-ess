@@ -33,12 +33,12 @@ export default function AdminDashboard() {
   const ingestionEvents = (audit.data ?? []).filter(l => l.action === "DATASET_IMPORTED" || l.action === "DATASET_VALIDATED");
 
   const tiles = [
-    { label: "Components", value: s?.totalComponents, icon: Activity },
-    { label: "Lots", value: s?.totalLots, icon: Database },
-    { label: "High-risk", value: s?.highRisk, icon: ShieldAlert },
-    { label: "Critical", value: s?.critical, icon: AlertTriangle },
-    { label: "Anomaly rate", value: s ? `${s.anomalyRate}%` : undefined, icon: Activity },
-    { label: "Open investigations", value: s?.recentInvestigations?.filter(i => i.status === "OPEN").length, icon: ListChecks },
+    { label: "Components", value: s?.totalComponents, icon: Activity, accent: "accent-strip-navy" },
+    { label: "Lots", value: s?.totalLots, icon: Database, accent: "accent-strip-navy" },
+    { label: "High-risk", value: s?.highRisk, icon: ShieldAlert, accent: "accent-strip-saffron" },
+    { label: "Critical", value: s?.critical, icon: AlertTriangle, accent: "border-l-[3px] border-l-destructive" },
+    { label: "Anomaly rate", value: s ? `${s.anomalyRate}%` : undefined, icon: Activity, accent: "accent-strip-saffron" },
+    { label: "Open investigations", value: s?.recentInvestigations?.filter(i => i.status === "OPEN").length, icon: ListChecks, accent: "accent-strip-green" },
   ];
 
   if (summary.isLoading) return <DashboardLayout><OrbitalLoader label="Loading system status…" /></DashboardLayout>;
@@ -60,7 +60,7 @@ export default function AdminDashboard() {
 
       <section className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
         {tiles.map(t => (
-          <Card key={t.label} className="blueprint-panel"><CardContent className="p-4">
+          <Card key={t.label} className={`blueprint-panel ${t.accent}`}><CardContent className="p-4">
             <div className="flex items-center justify-between text-muted-foreground"><span className="blueprint-label">{t.label}</span><t.icon className="h-4 w-4" /></div>
             <div className="metric-value mt-2 text-2xl font-semibold">{t.value ?? "—"}</div>
           </CardContent></Card>

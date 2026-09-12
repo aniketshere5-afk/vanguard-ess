@@ -20,10 +20,10 @@ const SCENARIO_CHIPS = ["Static PASS / Dynamic Anomaly", "Accelerating Drift", "
 const DECISIONS = ["Accept", "Hold", "Re-test", "Extend Burn-In", "Reject", "Investigate Further"] as const;
 
 const bandTone = (band?: string) =>
-  band === "CRITICAL" || band === "HIGH RISK" ? "text-red-600 dark:text-red-300 border-red-500/30 bg-red-500/5"
-  : band === "SUSPICIOUS" ? "text-amber-600 dark:text-amber-300 border-amber-500/30 bg-amber-500/5"
-  : band === "WATCH" ? "text-yellow-600 dark:text-yellow-200 border-yellow-500/30 bg-yellow-500/5"
-  : "text-emerald-600 dark:text-emerald-300 border-emerald-500/30 bg-emerald-500/5";
+  band === "CRITICAL" || band === "HIGH RISK" ? "status-critical"
+  : band === "SUSPICIOUS" ? "status-caution"
+  : band === "WATCH" ? "status-watch"
+  : "status-good";
 
 function Section({ n, title, blurb, icon: Icon, children }: { n: number; title: string; blurb: string; icon: typeof ScanSearch; children: React.ReactNode }) {
   return (
@@ -233,13 +233,13 @@ export default function ReliabilityWorkbench() {
             <div className="h-[260px] w-full min-w-0">
               <ResponsiveContainer width="100%" height="100%" minHeight={200}>
                 <AreaChart data={chartData} margin={{ left: 0, right: 12, top: 10, bottom: 0 }}>
-                  <defs><linearGradient id="wbArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--primary)" stopOpacity={0.3} /><stop offset="100%" stopColor="var(--primary)" stopOpacity={0} /></linearGradient></defs>
+                  <defs><linearGradient id="wbArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--gov-saffron)" stopOpacity={0.35} /><stop offset="100%" stopColor="var(--gov-saffron)" stopOpacity={0} /></linearGradient></defs>
                   <CartesianGrid stroke="var(--border)" vertical={false} />
                   <XAxis dataKey="time" stroke="var(--muted-foreground)" fontSize={11} />
                   <YAxis stroke="var(--muted-foreground)" fontSize={11} unit=" µA" />
                   <Tooltip contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", color: "var(--popover-foreground)" }} />
-                  <Area type="monotone" dataKey="value" name="Leakage" stroke="var(--primary)" fill="url(#wbArea)" strokeWidth={2} />
-                  <ReferenceLine y={analysis.safetyBoundary} stroke="var(--muted-foreground)" strokeDasharray="5 5" label={{ value: "Safety boundary", fill: "var(--muted-foreground)", fontSize: 11 }} />
+                  <Area type="monotone" dataKey="value" name="Leakage" stroke="var(--gov-saffron)" fill="url(#wbArea)" strokeWidth={2} />
+                  <ReferenceLine y={analysis.safetyBoundary} stroke="var(--gov-green)" strokeDasharray="5 5" label={{ value: "Safety boundary", fill: "var(--gov-green)", fontSize: 11 }} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
