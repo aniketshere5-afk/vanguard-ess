@@ -27,7 +27,7 @@ export function GovMasthead() {
   }, []);
 
   return (
-    <header ref={ref} className="sticky top-0 z-50">
+    <header ref={ref} className="sticky top-0 z-50 print:hidden">
       <div style={{ background: "var(--gov-navy)" }} className="text-white/90">
         <div className="mx-auto flex h-7 max-w-[1600px] items-center justify-between px-4 text-[11px] tracking-wide">
           <span className="font-semibold tracking-wider">SMART INDIA HACKATHON &nbsp;•&nbsp; PROTOTYPE</span>
@@ -58,7 +58,7 @@ export function GovMasthead() {
 
 export function GovFooter() {
   return (
-    <footer className="border-t border-border bg-card">
+    <footer className="border-t border-border bg-card print:hidden">
       <div className="tricolour-rule opacity-70" />
       <div className="mx-auto flex max-w-[1600px] flex-col gap-1 px-4 py-4 text-[11px] text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
         <span>Independent hackathon prototype — not an official ISRO or Government of India website.</span>

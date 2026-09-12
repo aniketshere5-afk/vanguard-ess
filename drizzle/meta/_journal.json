@@ -36,6 +36,13 @@
       "when": 1788726410947,
       "tag": "0004_sticky_green_goblin",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1789200000000,
+      "tag": "0005_add_employee_auth",
+      "breakpoints": true
     }
   ]
 }

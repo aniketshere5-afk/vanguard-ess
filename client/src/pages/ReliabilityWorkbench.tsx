@@ -1,7 +1,9 @@
 import DashboardLayout from "@/components/DashboardLayout";
 import OrbitalLoader from "@/components/OrbitalLoader";
 import PipelineStrip from "@/components/PipelineStrip";
+import PrintReportHeader from "@/components/PrintReportHeader";
 import PassFailExplanation from "@/components/PassFailExplanation";
+import FailureModeCard from "@/components/FailureModeCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
-import { AlertTriangle, CheckCircle2, Database, FileWarning, GaugeCircle, LineChart, RefreshCw, ScanSearch, Upload } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Database, FileWarning, GaugeCircle, LineChart, Printer, RefreshCw, ScanSearch, Upload } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { toast } from "sonner";
@@ -20,10 +22,10 @@ const SCENARIO_CHIPS = ["Static PASS / Dynamic Anomaly", "Accelerating Drift", "
 const DECISIONS = ["Accept", "Hold", "Re-test", "Extend Burn-In", "Reject", "Investigate Further"] as const;
 
 const bandTone = (band?: string) =>
-  band === "CRITICAL" || band === "HIGH RISK" ? "text-red-600 dark:text-red-300 border-red-500/30 bg-red-500/5"
-  : band === "SUSPICIOUS" ? "text-amber-600 dark:text-amber-300 border-amber-500/30 bg-amber-500/5"
-  : band === "WATCH" ? "text-yellow-600 dark:text-yellow-200 border-yellow-500/30 bg-yellow-500/5"
-  : "text-emerald-600 dark:text-emerald-300 border-emerald-500/30 bg-emerald-500/5";
+  band === "CRITICAL" || band === "HIGH RISK" ? "status-critical"
+  : band === "SUSPICIOUS" ? "status-caution"
+  : band === "WATCH" ? "status-watch"
+  : "status-good";
 
 function Section({ n, title, blurb, icon: Icon, children }: { n: number; title: string; blurb: string; icon: typeof ScanSearch; children: React.ReactNode }) {
   return (
@@ -144,7 +146,8 @@ export default function ReliabilityWorkbench() {
 
   return <DashboardLayout>
     <div className="container space-y-5 pb-12">
-      <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+      <PrintReportHeader componentCode={detail.data?.component.componentCode} lotCode={detail.data?.lot.lotCode} preparedBy={user?.name ?? undefined} />
+      <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between print:hidden">
         <div>
           <p className="blueprint-label text-primary">RELIABILITY WORKBENCH</p>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight md:text-3xl">Screen one component, end to end</h1>
@@ -155,13 +158,16 @@ export default function ReliabilityWorkbench() {
           <Button variant="outline" size="sm" disabled={!selectedId || runAnalysis.isPending} onClick={() => runAnalysis.mutate({ componentId: selectedId! })}>
             <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${runAnalysis.isPending ? "animate-spin" : ""}`} />Re-run analysis
           </Button>
+          <Button variant="outline" size="sm" disabled={!analysis} onClick={() => window.print()}>
+            <Printer className="mr-1.5 h-3.5 w-3.5" />Download PDF report
+          </Button>
         </div>
       </header>
 
-      <PipelineStrip />
+      <PipelineStrip className="print:hidden" />
 
       {/* Picker */}
-      <Card className="blueprint-panel">
+      <Card className="blueprint-panel print:hidden">
         <CardContent className="flex flex-col gap-3 p-4 lg:flex-row lg:items-end">
           <label className="flex-1">
             <span className="blueprint-label">Lot</span>
@@ -233,13 +239,13 @@ export default function ReliabilityWorkbench() {
             <div className="h-[260px] w-full min-w-0">
               <ResponsiveContainer width="100%" height="100%" minHeight={200}>
                 <AreaChart data={chartData} margin={{ left: 0, right: 12, top: 10, bottom: 0 }}>
-                  <defs><linearGradient id="wbArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--primary)" stopOpacity={0.3} /><stop offset="100%" stopColor="var(--primary)" stopOpacity={0} /></linearGradient></defs>
+                  <defs><linearGradient id="wbArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--gov-saffron)" stopOpacity={0.35} /><stop offset="100%" stopColor="var(--gov-saffron)" stopOpacity={0} /></linearGradient></defs>
                   <CartesianGrid stroke="var(--border)" vertical={false} />
                   <XAxis dataKey="time" stroke="var(--muted-foreground)" fontSize={11} />
                   <YAxis stroke="var(--muted-foreground)" fontSize={11} unit=" µA" />
                   <Tooltip contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", color: "var(--popover-foreground)" }} />
-                  <Area type="monotone" dataKey="value" name="Leakage" stroke="var(--primary)" fill="url(#wbArea)" strokeWidth={2} />
-                  <ReferenceLine y={analysis.safetyBoundary} stroke="var(--muted-foreground)" strokeDasharray="5 5" label={{ value: "Safety boundary", fill: "var(--muted-foreground)", fontSize: 11 }} />
+                  <Area type="monotone" dataKey="value" name="Leakage" stroke="var(--gov-saffron)" fill="url(#wbArea)" strokeWidth={2} />
+                  <ReferenceLine y={analysis.safetyBoundary} stroke="var(--gov-green)" strokeDasharray="5 5" label={{ value: "Safety boundary", fill: "var(--gov-green)", fontSize: 11 }} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -268,6 +274,13 @@ export default function ReliabilityWorkbench() {
                 <p className="mt-1 text-xs text-muted-foreground">A computed recommendation. The QA Engineer's decision below is the record of authority.</p>
               </div>
             </div>
+
+            {analysis.failureMode && (
+              <div className="mt-4 border-t border-border pt-4">
+                <p className="blueprint-label mb-3">Failure mode signature</p>
+                <FailureModeCard failureMode={analysis.failureMode} />
+              </div>
+            )}
 
             <div className="mt-4 grid gap-4 border-t border-border pt-4 lg:grid-cols-2">
               <div>
@@ -319,7 +332,7 @@ export default function ReliabilityWorkbench() {
       )}
 
       {/* Secondary: import + activity */}
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid gap-5 lg:grid-cols-2 print:hidden">
         <Card className="blueprint-panel">
           <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-sm"><Upload className="h-4 w-4 text-muted-foreground" />Import measurement data</CardTitle></CardHeader>
           <CardContent>

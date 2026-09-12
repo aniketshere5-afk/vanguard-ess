@@ -12,8 +12,8 @@ export default function PassFailExplanation({ analysis }: { analysis: Reliabilit
   const s = analysis.staticExplanation;
   const shap = analysis.shap;
   const verdictTone =
-    s.verdict === "PASS" ? "text-emerald-700 dark:text-emerald-300 border-emerald-500/30 bg-emerald-500/5"
-    : s.verdict === "FAIL" ? "text-red-700 dark:text-red-300 border-red-500/30 bg-red-500/5"
+    s.verdict === "PASS" ? "status-good"
+    : s.verdict === "FAIL" ? "status-critical"
     : "text-muted-foreground border-border bg-muted/30";
   const VerdictIcon = s.verdict === "PASS" ? CheckCircle2 : s.verdict === "FAIL" ? XCircle : HelpCircle;
 
@@ -37,8 +37,8 @@ export default function PassFailExplanation({ analysis }: { analysis: Reliabilit
             <div className="mt-3">
               <div className="relative h-2 rounded-full bg-muted">
                 <div
-                  className={`absolute inset-y-0 left-0 rounded-full ${s.verdict === "FAIL" ? "bg-red-500" : "bg-emerald-500"}`}
-                  style={{ width: `${Math.min(100, (s.measured / Math.max(s.limit, s.measured)) * 100)}%` }}
+                  className={`absolute inset-y-0 left-0 rounded-full ${s.verdict === "FAIL" ? "bg-destructive" : ""}`}
+                  style={{ width: `${Math.min(100, (s.measured / Math.max(s.limit, s.measured)) * 100)}%`, background: s.verdict !== "FAIL" ? "var(--gov-green)" : undefined }}
                 />
                 <div className="absolute inset-y-[-3px] w-0.5 bg-foreground" style={{ left: `${Math.min(100, (s.limit / Math.max(s.limit, s.measured)) * 100)}%` }} />
               </div>
@@ -67,7 +67,7 @@ export default function PassFailExplanation({ analysis }: { analysis: Reliabilit
               <div className="mt-3 space-y-2.5">
                 {shap.features.map(f => {
                   const Icon = f.direction === "increases" ? TrendingUp : f.direction === "decreases" ? TrendingDown : MinusCircle;
-                  const tone = f.direction === "increases" ? "text-red-600 dark:text-red-400" : f.direction === "decreases" ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground";
+                  const tone = f.direction === "increases" ? "status-text-critical" : f.direction === "decreases" ? "status-text-good" : "text-muted-foreground";
                   return (
                     <div key={f.key}>
                       <div className="flex items-center justify-between text-xs">
@@ -78,8 +78,8 @@ export default function PassFailExplanation({ analysis }: { analysis: Reliabilit
                       <div className="relative mt-1 h-1.5 bg-muted">
                         <div className="absolute inset-y-0 left-1/2 w-px bg-border" />
                         <div
-                          className={`absolute inset-y-0 ${f.direction === "decreases" ? "right-1/2 bg-emerald-500" : "left-1/2 bg-red-500"}`}
-                          style={{ width: fillPct(f.contribution) }}
+                          className={`absolute inset-y-0 ${f.direction === "decreases" ? "right-1/2" : "left-1/2 bg-destructive"}`}
+                          style={{ width: fillPct(f.contribution), background: f.direction === "decreases" ? "var(--gov-green)" : undefined }}
                         />
                       </div>
                       <p className="mt-0.5 text-[10px] text-muted-foreground">this unit {f.value.toFixed(0)} · lot peers avg {f.baseline.toFixed(0)}</p>

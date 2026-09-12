@@ -9,6 +9,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import QADashboard from "./pages/QADashboard";
 import ReliabilityWorkbench from "./pages/ReliabilityWorkbench";
 import InvestigationQueue from "./pages/InvestigationQueue";
+import LotComparison from "./pages/LotComparison";
 import Configuration from "@/pages/Configuration";
 import AccountSettings from "@/pages/AccountSettings";
 import AdminUsers from "@/pages/AdminUsers";
@@ -21,6 +22,7 @@ function Router() {
       <Route path="/admin" component={AdminDashboard} />
       <Route path="/qa" component={QADashboard} />
       <Route path="/investigations" component={InvestigationQueue} />
+      <Route path="/comparison" component={LotComparison} />
       <Route path="/analysis"><Redirect to="/reliability" /></Route>
       <Route path="/configuration" component={Configuration} />
       <Route path="/settings" component={AccountSettings} />

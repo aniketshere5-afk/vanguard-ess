@@ -63,6 +63,39 @@ export async function getUserByOpenId(openId: string) {
   return result[0];
 }
 
+export async function getUserByEmployeeId(employeeId: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(users).where(eq(users.employeeId, employeeId)).limit(1);
+  return result[0];
+}
+
+/** Real self-service registration: an employee picks their own ID + password. openId is namespaced so it never collides with Google/demo accounts. */
+export async function registerEmployee(input: { employeeId: string; name: string; email?: string; passwordHash: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database unavailable");
+  const existing = await getUserByEmployeeId(input.employeeId);
+  if (existing) throw new Error("This Employee ID is already registered");
+  const openId = `emp:${input.employeeId}`;
+  await db.insert(users).values({
+    openId,
+    employeeId: input.employeeId,
+    passwordHash: input.passwordHash,
+    name: input.name,
+    email: input.email ?? null,
+    loginMethod: "employee",
+    role: "scientist",
+    lastSignedIn: new Date(),
+  });
+  return getUserByOpenId(openId);
+}
+
+export async function touchLastSignedIn(openId: string) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(users).set({ lastSignedIn: new Date() }).where(eq(users.openId, openId));
+}
+
 export async function updateUserProfile(openId: string, profile: { name: string; email: string }) {
   const db = await getDb();
   if (!db) return getUserByOpenId(openId);
@@ -575,6 +608,31 @@ export async function computeComponentAnalysis(componentId: number, persist = fa
   const value = { component, lot, measurements: ms, result };
   analysisCache.set(componentId, { at: Date.now(), value });
   return value;
+}
+
+/**
+ * Every component's current analysis, using the latest persisted run where
+ * one exists and computing fresh (cached) otherwise. Shared by
+ * dashboard.summary and alerts.list so the two never disagree about which
+ * components are flagged.
+ */
+export async function getAllComponentAnalyses() {
+  const lots = await getLots();
+  const comps = await getComponents();
+  const latestRows = await getLatestAnalyses(comps.map(c => c.id));
+  const latestByComponent = new Map(latestRows.map(row => [row.componentId, row]));
+  const analyses = await Promise.all(comps.map(async component => {
+    const lot = lots.find(candidate => candidate.id === component.lotId);
+    if (!lot) return null;
+    const latest = latestByComponent.get(component.id);
+    if (latest) return { component, lot, measurements: [], result: latest.resultJson as Awaited<ReturnType<typeof computeComponentAnalysis>>["result"] };
+    try {
+      return await computeComponentAnalysis(component.id, false);
+    } catch {
+      return null;
+    }
+  }));
+  return { lots, components: comps, analyses: analyses.filter(Boolean) as Awaited<ReturnType<typeof computeComponentAnalysis>>[] };
 }
 
 /**

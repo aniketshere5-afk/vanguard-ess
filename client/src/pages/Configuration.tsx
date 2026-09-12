@@ -11,11 +11,11 @@ import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 
 const RISK_BANDS = [
-  { band: "NORMAL", range: "0 – 20", tone: "text-emerald-600 dark:text-emerald-300" },
-  { band: "WATCH", range: "21 – 40", tone: "text-yellow-600 dark:text-yellow-200" },
-  { band: "SUSPICIOUS", range: "41 – 60", tone: "text-amber-600 dark:text-amber-300" },
-  { band: "HIGH RISK", range: "61 – 80", tone: "text-orange-600 dark:text-orange-300" },
-  { band: "CRITICAL", range: "81 – 100", tone: "text-red-600 dark:text-red-300" },
+  { band: "NORMAL", range: "0 – 20", tone: "status-text-good" },
+  { band: "WATCH", range: "21 – 40", tone: "status-text-watch" },
+  { band: "SUSPICIOUS", range: "41 – 60", tone: "status-text-caution" },
+  { band: "HIGH RISK", range: "61 – 80", tone: "status-text-critical" },
+  { band: "CRITICAL", range: "81 – 100", tone: "status-text-critical" },
 ];
 const ACTIONS = [
   { action: "Standard Screening", range: "score < 41" },

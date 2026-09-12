@@ -1,3 +1,6 @@
+import type { FailureModeAnalysis } from "./failureModes";
+import { analyzeFailureMode } from "./failureModes";
+
 export type Point = { checkpointHours: number; value: number };
 export type ReliabilityResult = {
   staticResult: "PASS" | "FAIL";
@@ -22,6 +25,7 @@ export type ReliabilityResult = {
   uncertaintyLevel: "LOW" | "MODERATE" | "HIGH" | "UNKNOWN";
   staticExplanation: StaticExplanation;
   shap: ShapExplanation | null;
+  failureMode: FailureModeAnalysis;
   modelVersion: string;
 };
 
@@ -215,7 +219,10 @@ export function computeReliability(points: Point[], peerInitialValues: number[],
   const featureContributions = [
     { label: "Lot deviation", contribution: Math.round(.28 * dynamicRisk * 10) / 10 }, { label: "Boundary proximity", contribution: Math.round(.25 * boundaryRisk * 10) / 10 }, { label: "Early drift", contribution: Math.round(.24 * driftRisk * 10) / 10 }, { label: "Prediction uncertainty", contribution: Math.round(.15 * uncertaintyRisk * 10) / 10 }, { label: "Static compliance", contribution: Math.round(.08 * staticRisk * 10) / 10 },
   ];
-  return { staticResult, lotBaseline: peerMedian, lotMad: mad, lotIqr: iqr, robustZ, dynamicResult, anomalyScore, driftSlope: slope, driftPercent, predicted168h: predicted, predictionInterval: interval, safetyBoundary: configuredSafetyBoundary, boundaryMargin: margin, boundaryStatus, riskScore, riskBand, suggestedAction, evidence, featureContributions, uncertaintyLevel, staticExplanation, shap, modelVersion: "PRRS-LINEAR-1.0" };
+
+  const failureMode = analyzeFailureMode(ordered, slope, anomalyScore, predicted, configuredSafetyBoundary, initial);
+
+  return { staticResult, lotBaseline: peerMedian, lotMad: mad, lotIqr: iqr, robustZ, dynamicResult, anomalyScore, driftSlope: slope, driftPercent, predicted168h: predicted, predictionInterval: interval, safetyBoundary: configuredSafetyBoundary, boundaryMargin: margin, boundaryStatus, riskScore, riskBand, suggestedAction, evidence, featureContributions, uncertaintyLevel, staticExplanation, shap, failureMode, modelVersion: "PRRS-LINEAR-1.0" };
 }
 
 export function generateSyntheticDemo() {

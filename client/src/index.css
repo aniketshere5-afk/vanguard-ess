@@ -101,11 +101,29 @@
   .metric-value { font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
   .tech-line { height: 1px; background: var(--border); }
 
-  /* The tricolour is used only as a thin rule, per government style. */
+  /* The tricolour rule accent. */
   .tricolour-rule { height: 3px; background: linear-gradient(90deg, var(--gov-saffron) 0 33.33%, #ffffff 33.33% 66.66%, var(--gov-green) 66.66% 100%); }
   .gov-utility { background: var(--gov-navy); color: #cdd9ea; }
   .gov-masthead { background: var(--card); border-bottom: 1px solid var(--border); }
   .gov-emblem { color: var(--primary); }
+
+  /* Functional tricolour status system — saffron/green are the real "good /
+     needs attention" colors throughout the app, not just a header stripe.
+     CRITICAL stays red (universal danger convention; not part of the flag). */
+  .status-good { color: var(--gov-green); border-color: color-mix(in srgb, var(--gov-green) 45%, transparent); background: color-mix(in srgb, var(--gov-green) 8%, transparent); }
+  .status-watch { color: var(--gov-saffron); border-color: color-mix(in srgb, var(--gov-saffron) 50%, transparent); background: color-mix(in srgb, var(--gov-saffron) 10%, transparent); }
+  .status-caution { color: #b06a00; border-color: color-mix(in srgb, var(--gov-saffron) 65%, #7a4a00 35%); background: color-mix(in srgb, var(--gov-saffron) 14%, transparent); }
+  .status-critical { color: var(--destructive); border-color: color-mix(in srgb, var(--destructive) 45%, transparent); background: color-mix(in srgb, var(--destructive) 8%, transparent); }
+  /* Text-only variants — no border/background, for inline use in plain lists. */
+  .status-text-good { color: var(--gov-green); }
+  .status-text-watch { color: var(--gov-saffron); }
+  .status-text-caution { color: #b06a00; }
+  .status-text-critical { color: var(--destructive); }
+
+  /* Left-edge tricolour accent strip for KPI/metric cards. */
+  .accent-strip-saffron { border-left: 3px solid var(--gov-saffron); }
+  .accent-strip-green { border-left: 3px solid var(--gov-green); }
+  .accent-strip-navy { border-left: 3px solid var(--primary); }
 
   /* Subtle orbital-arc watermark for hero/section backgrounds. Purely
      decorative, low-opacity, never placed behind text without a solid panel. */
@@ -131,6 +149,7 @@
 @media print {
   body { background: white !important; color: black !important; }
   aside, nav, button, input, select, textarea, [data-sidebar] { display: none !important; }
-  .blueprint-panel { box-shadow: none !important; break-inside: avoid; }
+  .blueprint-panel { box-shadow: none !important; break-inside: avoid; border-color: #ccc !important; }
   main { padding: 0 !important; }
+  .print\:block { display: block !important; }
 }
