@@ -625,7 +625,11 @@ export async function getAllComponentAnalyses() {
     const lot = lots.find(candidate => candidate.id === component.lotId);
     if (!lot) return null;
     const latest = latestByComponent.get(component.id);
-    if (latest) return { component, lot, measurements: [], result: latest.resultJson as Awaited<ReturnType<typeof computeComponentAnalysis>>["result"] };
+    const cachedResult = latest?.resultJson as Awaited<ReturnType<typeof computeComponentAnalysis>>["result"] | undefined;
+    // A persisted row predates a model/schema change (e.g. added failureMode)
+    // when it's missing a field the current result shape always has. Rather
+    // than serve that stale JSON forever, fall through and recompute fresh.
+    if (cachedResult && cachedResult.failureMode !== undefined) return { component, lot, measurements: [], result: cachedResult };
     try {
       return await computeComponentAnalysis(component.id, false);
     } catch {
