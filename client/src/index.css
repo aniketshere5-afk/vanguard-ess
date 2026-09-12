@@ -149,6 +149,7 @@
 @media print {
   body { background: white !important; color: black !important; }
   aside, nav, button, input, select, textarea, [data-sidebar] { display: none !important; }
-  .blueprint-panel { box-shadow: none !important; break-inside: avoid; }
+  .blueprint-panel { box-shadow: none !important; break-inside: avoid; border-color: #ccc !important; }
   main { padding: 0 !important; }
+  .print\:block { display: block !important; }
 }

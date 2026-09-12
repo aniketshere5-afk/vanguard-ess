@@ -1,6 +1,7 @@
 import DashboardLayout from "@/components/DashboardLayout";
 import OrbitalLoader from "@/components/OrbitalLoader";
 import PipelineStrip from "@/components/PipelineStrip";
+import PrintReportHeader from "@/components/PrintReportHeader";
 import PassFailExplanation from "@/components/PassFailExplanation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
-import { AlertTriangle, CheckCircle2, Database, FileWarning, GaugeCircle, LineChart, RefreshCw, ScanSearch, Upload } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Database, FileWarning, GaugeCircle, LineChart, Printer, RefreshCw, ScanSearch, Upload } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { toast } from "sonner";
@@ -144,7 +145,8 @@ export default function ReliabilityWorkbench() {
 
   return <DashboardLayout>
     <div className="container space-y-5 pb-12">
-      <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+      <PrintReportHeader componentCode={detail.data?.component.componentCode} lotCode={detail.data?.lot.lotCode} preparedBy={user?.name ?? undefined} />
+      <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between print:hidden">
         <div>
           <p className="blueprint-label text-primary">RELIABILITY WORKBENCH</p>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight md:text-3xl">Screen one component, end to end</h1>
@@ -155,13 +157,16 @@ export default function ReliabilityWorkbench() {
           <Button variant="outline" size="sm" disabled={!selectedId || runAnalysis.isPending} onClick={() => runAnalysis.mutate({ componentId: selectedId! })}>
             <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${runAnalysis.isPending ? "animate-spin" : ""}`} />Re-run analysis
           </Button>
+          <Button variant="outline" size="sm" disabled={!analysis} onClick={() => window.print()}>
+            <Printer className="mr-1.5 h-3.5 w-3.5" />Download PDF report
+          </Button>
         </div>
       </header>
 
-      <PipelineStrip />
+      <PipelineStrip className="print:hidden" />
 
       {/* Picker */}
-      <Card className="blueprint-panel">
+      <Card className="blueprint-panel print:hidden">
         <CardContent className="flex flex-col gap-3 p-4 lg:flex-row lg:items-end">
           <label className="flex-1">
             <span className="blueprint-label">Lot</span>
@@ -319,7 +324,7 @@ export default function ReliabilityWorkbench() {
       )}
 
       {/* Secondary: import + activity */}
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid gap-5 lg:grid-cols-2 print:hidden">
         <Card className="blueprint-panel">
           <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-sm"><Upload className="h-4 w-4 text-muted-foreground" />Import measurement data</CardTitle></CardHeader>
           <CardContent>

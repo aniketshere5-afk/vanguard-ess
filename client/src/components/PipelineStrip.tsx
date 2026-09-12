@@ -10,9 +10,9 @@ const STEPS = [
 ];
 
 /** Static explainer of the CSV -> ML -> reliability workflow. Purely presentational — it does not change how the pipeline itself runs. */
-export default function PipelineStrip() {
+export default function PipelineStrip({ className = "" }: { className?: string }) {
   return (
-    <div className="blueprint-panel flex flex-wrap items-center gap-x-1 gap-y-2 overflow-x-auto p-3 text-[11px]">
+    <div className={`blueprint-panel flex flex-wrap items-center gap-x-1 gap-y-2 overflow-x-auto p-3 text-[11px] ${className}`}>
       {STEPS.map((step, i) => (
         <div key={step.label} className="flex items-center gap-1">
           <div className="flex items-center gap-1.5 whitespace-nowrap px-2 py-1 text-muted-foreground">

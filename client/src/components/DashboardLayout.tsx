@@ -270,7 +270,7 @@ function DashboardLayoutContent({
       </div>
 
       <SidebarInset>
-        <header style={{ top: "var(--gov-mast)" }} className="sticky z-30 flex h-14 items-center justify-between border-b border-border bg-background/95 px-3 backdrop-blur supports-[backdrop-filter]:backdrop-blur sm:px-5">
+        <header style={{ top: "var(--gov-mast)" }} className="sticky z-30 flex h-14 items-center justify-between border-b border-border bg-background/95 px-3 backdrop-blur supports-[backdrop-filter]:backdrop-blur sm:px-5 print:hidden">
           <div className="flex min-w-0 items-center gap-2">
             {isMobile && <SidebarTrigger className="h-9 w-9 rounded-lg bg-background" />}
             <span className="truncate text-sm font-medium tracking-tight text-foreground">
