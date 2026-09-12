@@ -23,6 +23,7 @@ import { useIsMobile } from "@/hooks/useMobile";
 import { CheckCircle2, ChevronDown, LogOut, PanelLeft, ShieldCheck } from "lucide-react";
 import { menuItemKey, menuItems, visibleMenuItems as filterMenuItems } from "./dashboardNavigation";
 import DemoLoginForm from "./DemoLoginForm";
+import AlertsPanel from "./AlertsPanel";
 import { GovFooter, GovMasthead } from "./GovChrome";
 import OrbitalLoader from "./OrbitalLoader";
 import { CSSProperties, useEffect, useRef, useState } from "react";
@@ -276,6 +277,8 @@ function DashboardLayoutContent({
               {activeMenuItem?.label ?? "VanGuard ESS"}
             </span>
           </div>
+          <div className="flex items-center gap-1">
+          <AlertsPanel />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="flex max-w-[min(18rem,60vw)] items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-accent/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Open user profile menu">
@@ -303,6 +306,7 @@ function DashboardLayoutContent({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          </div>
         </header>
         <AlertDialog open={logoutOpen} onOpenChange={setLogoutOpen}>
           <AlertDialogContent>

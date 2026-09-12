@@ -611,6 +611,31 @@ export async function computeComponentAnalysis(componentId: number, persist = fa
 }
 
 /**
+ * Every component's current analysis, using the latest persisted run where
+ * one exists and computing fresh (cached) otherwise. Shared by
+ * dashboard.summary and alerts.list so the two never disagree about which
+ * components are flagged.
+ */
+export async function getAllComponentAnalyses() {
+  const lots = await getLots();
+  const comps = await getComponents();
+  const latestRows = await getLatestAnalyses(comps.map(c => c.id));
+  const latestByComponent = new Map(latestRows.map(row => [row.componentId, row]));
+  const analyses = await Promise.all(comps.map(async component => {
+    const lot = lots.find(candidate => candidate.id === component.lotId);
+    if (!lot) return null;
+    const latest = latestByComponent.get(component.id);
+    if (latest) return { component, lot, measurements: [], result: latest.resultJson as Awaited<ReturnType<typeof computeComponentAnalysis>>["result"] };
+    try {
+      return await computeComponentAnalysis(component.id, false);
+    } catch {
+      return null;
+    }
+  }));
+  return { lots, components: comps, analyses: analyses.filter(Boolean) as Awaited<ReturnType<typeof computeComponentAnalysis>>[] };
+}
+
+/**
  * Evaluate the 168h forecaster against components that actually reached a 168h
  * checkpoint: predict from the 0h/24h slope and compare with the measured
  * value. Returns real MAE / RMSE / R^2 (null when there is nothing to score).

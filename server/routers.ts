@@ -8,7 +8,7 @@ import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { validateCsv } from "./reliability";
 import { parseDataset } from "./ingestion";
-import { ensureDemoDataset, getLots, getLot, getComponents, getComponent, getMeasurements, getLatestAnalysis, getLatestAnalyses, computeComponentAnalysis, createInvestigation, closeInvestigation, getAuditLogs, getInvestigations, getDecisions, getModels, recordAudit, updateUserProfile, listUsers, updateUserRole, importDataset, updateLotConfig, upsertUser, registerEmployee, getUserByEmployeeId, touchLastSignedIn } from "./db";
+import { ensureDemoDataset, getLots, getLot, getComponents, getComponent, getMeasurements, getLatestAnalysis, getLatestAnalyses, computeComponentAnalysis, getAllComponentAnalyses, createInvestigation, closeInvestigation, getAuditLogs, getInvestigations, getDecisions, getModels, recordAudit, updateUserProfile, listUsers, updateUserRole, importDataset, updateLotConfig, upsertUser, registerEmployee, getUserByEmployeeId, touchLastSignedIn } from "./db";
 
 /**
  * Fixed, publicly-documented demo accounts for hackathon/judge access.
@@ -102,7 +102,46 @@ export const appRouter = router({
     }),
   }),
     dashboard: router({
-    summary: readProcedure.query(async () => { await ensureDemoDataset(); const lots = await getLots(); const comps = await getComponents(); const latestRows = await getLatestAnalyses(comps.map(c => c.id)); const latestByComponent = new Map(latestRows.map(row => [row.componentId, row])); const analyses = await Promise.all(comps.map(async component => { const lot = lots.find(candidate => candidate.id === component.lotId); if (!lot) return null; const latest = latestByComponent.get(component.id); if (latest) return { component, lot, measurements: [], result: latest.resultJson as Awaited<ReturnType<typeof computeComponentAnalysis>>["result"] }; try { return await computeComponentAnalysis(component.id, false); } catch { return null; } })); const valid = analyses.filter(Boolean) as Awaited<ReturnType<typeof computeComponentAnalysis>>[]; const highRisk = valid.filter(a => (a.result.riskScore ?? 0) >= 61).length; const critical = valid.filter(a => (a.result.riskScore ?? 0) >= 81).length; const anomalies = valid.filter(a => a.result.dynamicResult === "ANOMALOUS").length; return { totalComponents: comps.length, totalLots: lots.length, highRisk, critical, anomalyRate: comps.length ? Math.round(anomalies / comps.length * 100) : 0, lotHealth: lots.map(lot => { const inLot = valid.filter(a => a.component.lotId === lot.id); const avgRisk = inLot.length ? inLot.reduce((sum, a) => sum + (a.result.riskScore ?? 0), 0) / inLot.length : 0; return { ...lot, avgRisk: Math.round(avgRisk * 10) / 10, componentCount: inLot.length, anomalyCount: inLot.filter(a => a.result.dynamicResult === "ANOMALOUS").length }; }), recentInvestigations: await getInvestigations(), syntheticLabel: "Demonstration Data" }; }),
+    summary: readProcedure.query(async () => {
+      await ensureDemoDataset();
+      const { lots, components: comps, analyses: valid } = await getAllComponentAnalyses();
+      const highRisk = valid.filter(a => (a.result.riskScore ?? 0) >= 61).length;
+      const critical = valid.filter(a => (a.result.riskScore ?? 0) >= 81).length;
+      const anomalies = valid.filter(a => a.result.dynamicResult === "ANOMALOUS").length;
+      return {
+        totalComponents: comps.length,
+        totalLots: lots.length,
+        highRisk,
+        critical,
+        anomalyRate: comps.length ? Math.round(anomalies / comps.length * 100) : 0,
+        lotHealth: lots.map(lot => {
+          const inLot = valid.filter(a => a.component.lotId === lot.id);
+          const avgRisk = inLot.length ? inLot.reduce((sum, a) => sum + (a.result.riskScore ?? 0), 0) / inLot.length : 0;
+          return { ...lot, avgRisk: Math.round(avgRisk * 10) / 10, componentCount: inLot.length, anomalyCount: inLot.filter(a => a.result.dynamicResult === "ANOMALOUS").length };
+        }),
+        recentInvestigations: await getInvestigations(),
+        syntheticLabel: "Demonstration Data",
+      };
+    }),
+  }),
+  alerts: router({
+    /** Components currently flagged HIGH RISK or CRITICAL, newest/highest first — for the live alert feed. */
+    list: readProcedure.query(async () => {
+      await ensureDemoDataset();
+      const { analyses } = await getAllComponentAnalyses();
+      return analyses
+        .filter(a => (a.result.riskScore ?? 0) >= 61)
+        .sort((a, b) => (b.result.riskScore ?? 0) - (a.result.riskScore ?? 0))
+        .map(a => ({
+          componentId: a.component.id,
+          componentCode: a.component.componentCode,
+          lotCode: a.lot.lotCode,
+          riskScore: a.result.riskScore,
+          riskBand: a.result.riskBand,
+          suggestedAction: a.result.suggestedAction,
+          dynamicResult: a.result.dynamicResult,
+        }));
+    }),
   }),
   lots: router({ list: readProcedure.query(async () => { await ensureDemoDataset(); return getLots(); }), get: readProcedure.input(z.object({ id: z.number().int() })).query(async ({ input }) => { await ensureDemoDataset(); const lot = await getLot(input.id); if (!lot) throw new TRPCError({ code: "NOT_FOUND", message: "Lot not found" }); const components = await getComponents(input.id); return { lot, components }; }) }),
   components: router({ list: readProcedure.input(z.object({ lotId: z.number().int().optional() }).optional()).query(async ({ input }) => { await ensureDemoDataset(); return getComponents(input?.lotId); }), get: readProcedure.input(z.object({ id: z.number().int() })).query(async ({ input }) => { await ensureDemoDataset(); const result = await computeComponentAnalysis(input.id); const investigations = (await getInvestigations()).filter(i => i.componentId === input.id); const investigationHistory = await Promise.all(investigations.map(async i => ({ ...i, decisions: await getDecisions(i.id) }))); return { ...result, investigations: investigationHistory }; }) }),
