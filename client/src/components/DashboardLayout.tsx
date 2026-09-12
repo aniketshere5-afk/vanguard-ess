@@ -19,9 +19,8 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { startLogin } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { AlertCircle, ArrowRight, CheckCircle2, ChevronDown, LogOut, PanelLeft, RefreshCw, ShieldCheck } from "lucide-react";
+import { CheckCircle2, ChevronDown, LogOut, PanelLeft, ShieldCheck } from "lucide-react";
 import { menuItemKey, menuItems, visibleMenuItems as filterMenuItems } from "./dashboardNavigation";
 import DemoLoginForm from "./DemoLoginForm";
 import { GovFooter, GovMasthead } from "./GovChrome";
@@ -47,8 +46,6 @@ export default function DashboardLayout({
   });
   const { loading, user, refresh } = useAuth();
   const [authLoadTimedOut, setAuthLoadTimedOut] = useState(false);
-  const [isLaunching, setIsLaunching] = useState(false);
-  const [loginError, setLoginError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading) {
@@ -74,16 +71,6 @@ export default function DashboardLayout({
   }
 
   if (!user) {
-    const callbackError = new URLSearchParams(window.location.search).get("error");
-    const handleSignIn = () => {
-      setLoginError(null);
-      const launched = startLogin();
-      if (launched) {
-        setIsLaunching(true);
-      } else {
-        setLoginError("Secure sign-in is unavailable. Check the OAuth application configuration and try again.");
-      }
-    };
     return (
       <div className="flex min-h-svh flex-col bg-background text-foreground">
         <GovMasthead />
@@ -98,15 +85,12 @@ export default function DashboardLayout({
             </div>
             <div className="border border-border bg-card p-6 sm:p-7">
               <div className="flex items-start justify-between gap-4">
-                <div><p className="blueprint-label">Access checkpoint</p><h2 className="mt-2 font-serif text-xl font-semibold">Scientist / Engineer sign-in</h2></div>
-                <span className="border border-emerald-500/30 bg-emerald-500/5 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-600">Demo</span>
+                <div><p className="blueprint-label">Access checkpoint</p><h2 className="mt-2 font-serif text-xl font-semibold">Employee sign-in</h2></div>
+                <span className="border border-emerald-500/30 bg-emerald-500/5 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-600">Secure</span>
               </div>
-              {(callbackError || loginError) && <div className="mt-4 flex gap-2 border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{loginError ?? "Sign-in could not be completed. Start a fresh authorization attempt."}</span></div>}
               <div className="mt-4">
                 <DemoLoginForm onSuccess={() => { void refresh(); }} />
               </div>
-              <div className="my-4 flex items-center gap-3 text-[10px] uppercase tracking-wider text-muted-foreground"><span className="h-px flex-1 bg-border" />or<span className="h-px flex-1 bg-border" /></div>
-              <Button variant="outline" onClick={handleSignIn} disabled={isLaunching} className="w-full justify-between">{isLaunching ? "Opening Google sign-in…" : "Continue with Google"}{isLaunching ? <RefreshCw className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}</Button>
               <p className="mt-4 text-center text-[11px] text-muted-foreground">Judges: use the one-click demo roles above — no real account needed.</p>
             </div>
           </div>

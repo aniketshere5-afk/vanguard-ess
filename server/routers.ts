@@ -3,11 +3,12 @@ import { z } from "zod";
 import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { sdk } from "./_core/sdk";
+import { hashPassword, verifyPassword } from "./_core/password";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { validateCsv } from "./reliability";
 import { parseDataset } from "./ingestion";
-import { ensureDemoDataset, getLots, getLot, getComponents, getComponent, getMeasurements, getLatestAnalysis, getLatestAnalyses, computeComponentAnalysis, createInvestigation, closeInvestigation, getAuditLogs, getInvestigations, getDecisions, getModels, recordAudit, updateUserProfile, listUsers, updateUserRole, importDataset, updateLotConfig, upsertUser } from "./db";
+import { ensureDemoDataset, getLots, getLot, getComponents, getComponent, getMeasurements, getLatestAnalysis, getLatestAnalyses, computeComponentAnalysis, createInvestigation, closeInvestigation, getAuditLogs, getInvestigations, getDecisions, getModels, recordAudit, updateUserProfile, listUsers, updateUserRole, importDataset, updateLotConfig, upsertUser, registerEmployee, getUserByEmployeeId, touchLastSignedIn } from "./db";
 
 /**
  * Fixed, publicly-documented demo accounts for hackathon/judge access.
@@ -51,6 +52,42 @@ export const appRouter = router({
         ctx.res.cookie(COOKIE_NAME, token, { ...getSessionCookieOptions(ctx.req), maxAge: ONE_YEAR_MS });
         await recordAudit("LOGIN_SESSION_OBSERVED", "user", openId, undefined, { method: "demo", role: account.role });
         return { success: true, role: account.role } as const;
+      }),
+    /** Real self-service registration: any employee creates an account with their own chosen ID + password. */
+    register: publicProcedure
+      .input(z.object({
+        employeeId: z.string().trim().min(3).max(40).regex(/^[A-Za-z0-9\-_.]+$/, "Use letters, numbers, - _ . only"),
+        name: z.string().trim().min(2).max(120),
+        email: z.string().trim().email().max(320).optional().or(z.literal("")),
+        password: z.string().min(8).max(100),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        if (DEMO_ACCOUNTS[input.employeeId.toUpperCase()]) throw new TRPCError({ code: "BAD_REQUEST", message: "This ID is reserved for the demo accounts. Choose a different Employee ID." });
+        let user;
+        try {
+          user = await registerEmployee({ employeeId: input.employeeId, name: input.name, email: input.email || undefined, passwordHash: hashPassword(input.password) });
+        } catch (err) {
+          throw new TRPCError({ code: "CONFLICT", message: err instanceof Error ? err.message : "Registration failed" });
+        }
+        if (!user) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Registration failed" });
+        const token = await sdk.createSessionToken(user.openId, { name: user.name ?? input.name, expiresInMs: ONE_YEAR_MS });
+        ctx.res.cookie(COOKIE_NAME, token, { ...getSessionCookieOptions(ctx.req), maxAge: ONE_YEAR_MS });
+        await recordAudit("ACCOUNT_REGISTERED", "user", String(user.id), user.id, { employeeId: input.employeeId });
+        return { success: true, role: user.role } as const;
+      }),
+    /** Real login for employee-registered accounts (separate from the demo accounts and from Google). */
+    login: publicProcedure
+      .input(z.object({ employeeId: z.string().trim().min(1).max(40), password: z.string().min(1).max(100) }))
+      .mutation(async ({ input, ctx }) => {
+        const user = await getUserByEmployeeId(input.employeeId);
+        if (!user || !verifyPassword(input.password, user.passwordHash)) {
+          throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid Employee ID or password" });
+        }
+        await touchLastSignedIn(user.openId);
+        const token = await sdk.createSessionToken(user.openId, { name: user.name ?? input.employeeId, expiresInMs: ONE_YEAR_MS });
+        ctx.res.cookie(COOKIE_NAME, token, { ...getSessionCookieOptions(ctx.req), maxAge: ONE_YEAR_MS });
+        await recordAudit("LOGIN_SESSION_OBSERVED", "user", String(user.id), user.id, { method: "employee" });
+        return { success: true, role: user.role } as const;
       }),
   }),
   admin: router({ users: adminProcedure.query(() => listUsers()), updateUserRole: adminProcedure.input(z.object({ id: z.number().int().positive(), role: z.enum(["user", "admin", "qa", "scientist"]) })).mutation(async ({ input, ctx }) => { const updated = await updateUserRole(input.id, input.role); if (!updated) throw new TRPCError({ code: "NOT_FOUND", message: "User not found" }); await recordAudit("USER_ROLE_UPDATED", "user", String(input.id), ctx.user.id, { role: input.role }); return updated; }) }),
