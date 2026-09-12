@@ -3,6 +3,7 @@ import OrbitalLoader from "@/components/OrbitalLoader";
 import PipelineStrip from "@/components/PipelineStrip";
 import PrintReportHeader from "@/components/PrintReportHeader";
 import PassFailExplanation from "@/components/PassFailExplanation";
+import FailureModeCard from "@/components/FailureModeCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -273,6 +274,13 @@ export default function ReliabilityWorkbench() {
                 <p className="mt-1 text-xs text-muted-foreground">A computed recommendation. The QA Engineer's decision below is the record of authority.</p>
               </div>
             </div>
+
+            {analysis.failureMode && (
+              <div className="mt-4 border-t border-border pt-4">
+                <p className="blueprint-label mb-3">Failure mode signature</p>
+                <FailureModeCard failureMode={analysis.failureMode} />
+              </div>
+            )}
 
             <div className="mt-4 grid gap-4 border-t border-border pt-4 lg:grid-cols-2">
               <div>
