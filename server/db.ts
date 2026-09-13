@@ -243,6 +243,13 @@ async function seedDemoDataset() {
     }).onDuplicateKeyUpdate({ set: { lotCode: demo.lotCode } });
     lot = (await db.select().from(lots).where(eq(lots.lotCode, demo.lotCode)).limit(1))[0];
     changed = true;
+  } else if (lot.dataLabel !== demo.dataLabel) {
+    // A lot inserted by an older version of this seed can carry a stale
+    // dataLabel forever, since the block above only runs on first creation.
+    // Keep it in sync with the current source of truth.
+    await db.update(lots).set({ dataLabel: demo.dataLabel }).where(eq(lots.id, lot.id));
+    lot = { ...lot, dataLabel: demo.dataLabel };
+    changed = true;
   }
   if (!lot) return;
 
