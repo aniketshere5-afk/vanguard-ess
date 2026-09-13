@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { AlertTriangle, CheckCircle2, Database, FileWarning, GaugeCircle, LineChart, Printer, RefreshCw, ScanSearch, Upload } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { toast } from "sonner";
 import { validateCsv } from "../../../server/reliability";
@@ -27,9 +27,9 @@ const bandTone = (band?: string) =>
   : band === "WATCH" ? "status-watch"
   : "status-good";
 
-function Section({ n, title, blurb, icon: Icon, children }: { n: number; title: string; blurb: string; icon: typeof ScanSearch; children: React.ReactNode }) {
+function Section({ n, id, title, blurb, icon: Icon, children }: { n: number; id?: string; title: string; blurb: string; icon: typeof ScanSearch; children: React.ReactNode }) {
   return (
-    <Card className="blueprint-panel">
+    <Card id={id} className="blueprint-panel scroll-mt-20">
       <CardHeader className="border-b border-border pb-3">
         <div className="flex items-start gap-3">
           <div className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-md border border-border text-xs font-semibold text-muted-foreground">{n}</div>
@@ -106,11 +106,13 @@ export default function ReliabilityWorkbench() {
   });
 
   // --- CSV import ---
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importedOnce, setImportedOnce] = useState(false);
   const validateMut = trpc.ingestion.validate.useMutation({ onError: e => toast.error(e.message) });
   const importMut = trpc.ingestion.import.useMutation({
     onSuccess: async r => {
       toast.success(`Imported ${r.lotCode}: ${r.componentsCreated} new component(s), ${r.measurementsInserted} measurement(s)`);
-      setPendingCsv(null); setLocalReport(null);
+      setPendingCsv(null); setLocalReport(null); setImportedOnce(true);
       await Promise.all([components.refetch(), lots.refetch(), audit.refetch()]);
     },
     onError: e => toast.error(e.message),
@@ -120,6 +122,7 @@ export default function ReliabilityWorkbench() {
   const [specMax, setSpecMax] = useState(50);
   const [boundary, setBoundary] = useState(42);
   const report = localReport ?? validateMut.data;
+  const scrollToSection = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
   const onPickCsv = async (file: File) => {
     try {
       const text = await file.text();
@@ -164,7 +167,20 @@ export default function ReliabilityWorkbench() {
         </div>
       </header>
 
-      <PipelineStrip className="print:hidden" />
+      <PipelineStrip
+        className="print:hidden"
+        steps={[
+          { label: "Upload data", done: !!pendingCsv || importedOnce, onClick: () => fileInputRef.current?.click() },
+          { label: "Validate data", done: !!report?.valid, onClick: () => scrollToSection("section-import") },
+          { label: "Process telemetry", done: importedOnce, onClick: () => {
+            if (report?.valid && pendingCsv && !importMut.isPending) importMut.mutate({ csv: pendingCsv.text, filename: pendingCsv.filename, specificationMax: specMax, safetyBoundary: boundary });
+            else scrollToSection("section-import");
+          } },
+          { label: "Run ML model", done: !!analysis, onClick: () => { if (selectedId) runAnalysis.mutate({ componentId: selectedId }); } },
+          { label: "Reliability analysis", done: !!analysis?.riskScore, onClick: () => scrollToSection("section-risk") },
+          { label: "Health / prediction results", done: !!analysis?.suggestedAction, onClick: () => scrollToSection("section-explanation") },
+        ]}
+      />
 
       {/* Picker */}
       <Card className="blueprint-panel print:hidden">
@@ -215,7 +231,7 @@ export default function ReliabilityWorkbench() {
           </Card>
 
           {/* 1. Anomaly detection */}
-          <Section n={1} title="Anomaly detection" icon={ScanSearch} blurb="Is this unit an outlier compared with its peers in the same lot?">
+          <Section n={1} id="section-anomaly" title="Anomaly detection" icon={ScanSearch} blurb="Is this unit an outlier compared with its peers in the same lot?">
             <div className="grid gap-4 sm:grid-cols-3">
               <div><p className="blueprint-label">Verdict</p><p className={`mt-1 font-semibold ${analysis.dynamicResult === "ANOMALOUS" ? "text-amber-600 dark:text-amber-300" : ""}`}>{analysis.dynamicResult.replace("_", " ")}</p></div>
               <div><p className="blueprint-label">Robust z-score</p><p className="mt-1 font-mono">{analysis.robustZ == null ? "n/a" : analysis.robustZ.toFixed(2)}</p></div>
@@ -235,7 +251,7 @@ export default function ReliabilityWorkbench() {
           </Section>
 
           {/* 2. Drift prediction */}
-          <Section n={2} title="Drift prediction" icon={LineChart} blurb="How is leakage trending, and where is it heading by 168 h?">
+          <Section n={2} id="section-drift" title="Drift prediction" icon={LineChart} blurb="How is leakage trending, and where is it heading by 168 h?">
             <div className="h-[260px] w-full min-w-0">
               <ResponsiveContainer width="100%" height="100%" minHeight={200}>
                 <AreaChart data={chartData} margin={{ left: 0, right: 12, top: 10, bottom: 0 }}>
@@ -261,7 +277,7 @@ export default function ReliabilityWorkbench() {
           </Section>
 
           {/* 3. Risk management */}
-          <Section n={3} title="Risk management" icon={GaugeCircle} blurb="One combined score, the suggested screening action, and the human decision.">
+          <Section n={3} id="section-risk" title="Risk management" icon={GaugeCircle} blurb="One combined score, the suggested screening action, and the human decision.">
             <div className="flex flex-wrap items-center gap-6">
               <div>
                 <p className="blueprint-label">Predictive Reliability Risk Score</p>
@@ -325,7 +341,7 @@ export default function ReliabilityWorkbench() {
           </Section>
 
           {/* 4. Pass/fail explanation */}
-          <Section n={4} title="Pass / fail explanation" icon={CheckCircle2} blurb="Why the static verdict came out this way, and what drives the risk score (SHAP).">
+          <Section n={4} id="section-explanation" title="Pass / fail explanation" icon={CheckCircle2} blurb="Why the static verdict came out this way, and what drives the risk score (SHAP).">
             <PassFailExplanation analysis={analysis} />
           </Section>
         </>
@@ -333,13 +349,13 @@ export default function ReliabilityWorkbench() {
 
       {/* Secondary: import + activity */}
       <div className="grid gap-5 lg:grid-cols-2 print:hidden">
-        <Card className="blueprint-panel">
+        <Card id="section-import" className="blueprint-panel scroll-mt-20">
           <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-sm"><Upload className="h-4 w-4 text-muted-foreground" />Import measurement data</CardTitle></CardHeader>
           <CardContent>
             <p className="text-xs leading-relaxed text-muted-foreground">Upload a CSV to validate and import as a new lot. The native checkpoint format and the ESS telemetry export are both accepted; problematic rows are reported, never silently imported.</p>
             <label className={`mt-3 flex items-center justify-center gap-2 rounded border border-dashed border-border bg-background px-3 py-3 text-xs hover:bg-accent ${validateMut.isPending ? "pointer-events-none opacity-60" : ""}`}>
               <Upload className="h-4 w-4" />{validateMut.isPending ? "Validating…" : "Choose CSV"}
-              <input className="sr-only" type="file" accept=".csv,text/csv" disabled={validateMut.isPending} onChange={e => { const f = e.target.files?.[0]; if (f) void onPickCsv(f); }} />
+              <input ref={fileInputRef} className="sr-only" type="file" accept=".csv,text/csv" disabled={validateMut.isPending} onChange={e => { const f = e.target.files?.[0]; if (f) void onPickCsv(f); }} />
             </label>
             {report && <div className="mt-3 space-y-2 text-[11px]">
               <p className={report.valid ? "text-emerald-600 dark:text-emerald-300" : "text-amber-600 dark:text-amber-300"}>{report.valid ? `Valid · ${report.rowCount.toLocaleString()} rows` : "Validation issues found"}</p>
