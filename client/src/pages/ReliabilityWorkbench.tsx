@@ -9,10 +9,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
-import { AlertTriangle, CheckCircle2, Database, FileWarning, GaugeCircle, LineChart, Printer, RefreshCw, ScanSearch, Upload } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Database, FileWarning, GaugeCircle, Info, LineChart, Printer, RefreshCw, ScanSearch, Upload } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { toast } from "sonner";
@@ -157,7 +158,30 @@ export default function ReliabilityWorkbench() {
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">Anomaly, drift, risk and the pass/fail reasoning for a single unit — in that order.</p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge variant="outline" className="border-border bg-muted text-foreground"><Database className="mr-1.5 h-3.5 w-3.5" />{detail.data?.lot.dataLabel ?? "—"}</Badge>
+          <Popover>
+            <PopoverTrigger asChild>
+              <button type="button" className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted px-2.5 py-1 text-xs font-semibold text-foreground transition-colors hover:bg-accent">
+                <Database className="h-3.5 w-3.5" />{detail.data?.lot.dataLabel ?? "—"}<Info className="h-3 w-3 text-muted-foreground" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="text-xs leading-relaxed">
+              {detail.data?.lot.dataLabel === "Imported Dataset" ? (
+                <>
+                  <p className="font-semibold text-foreground">Imported Dataset</p>
+                  <p className="mt-1.5 text-muted-foreground">
+                    This lot (<span className="font-mono text-foreground">{detail.data?.lot.lotCode}</span>) was created from a CSV you uploaded. Every measurement below came from that file — nothing here is synthetic.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="font-semibold text-foreground">Demonstration Data</p>
+                  <p className="mt-1.5 text-muted-foreground">
+                    This lot (<span className="font-mono text-foreground">{detail.data?.lot.lotCode}</span>) is seeded synthetic data for evaluating the platform — normal, latent-risk, drift, and failure scenarios generated for demonstration, not measurements from real hardware. Import your own CSV from the section below to analyze real data instead.
+                  </p>
+                </>
+              )}
+            </PopoverContent>
+          </Popover>
           <Button variant="outline" size="sm" disabled={!selectedId || runAnalysis.isPending} onClick={() => runAnalysis.mutate({ componentId: selectedId! })}>
             <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${runAnalysis.isPending ? "animate-spin" : ""}`} />Re-run analysis
           </Button>
